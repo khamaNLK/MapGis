@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Thêm địa điểm mới</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { display: flex; margin: 0; height: 100vh; font-family: sans-serif; }
+        #sidebar { width: 350px; padding: 20px; background: #f9f9f9; border-right: 1px solid #ddd; overflow-y: auto; }
+        #map { flex-grow: 1; height: 100%; }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input, select, textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #28a745; color: white; padding: 12px; border: none; cursor: pointer; width: 100%; font-size: 16px; border-radius: 4px; }
+        button:hover { background: #218838; }
+        .error { color: red; font-size: 0.9em; margin-top: 5px; }
+        .hint { background: #e9ecef; padding: 10px; border-radius: 4px; font-size: 0.9em; margin-bottom: 20px; border-left: 4px solid #17a2b8; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2>📍 Thêm địa điểm</h2>
+        <div class="hint">
+            👉 <b>Bước 1:</b> Click vào bản đồ để chọn vị trí (Sẽ hiện ghim xanh).<br>
+            👉 <b>Bước 2:</b> Điền thông tin và bấm Lưu.
+        </div>
+        
+        <form method="POST">
+            {% csrf_token %}
+            
+            {% if form.errors %}
+                <div class="error" style="margin-bottom: 10px;">
+                    ⚠️ Vui lòng chọn vị trí trên bản đồ!
+                </div>
+            {% endif %}
+
+            {{ form.lat }} 
+            {{ form.lon }}
+
+            <div class="form-group">
+                <label>Tên địa điểm:</label>
+                {{ form.name }}
+            </div>
+
+            <div class="form-group">
+                <label>Danh mục:</label>
+                {{ form.category }}
+            </div>
+
+            <div class="form-group">
+                <label>Mô tả:</label>
+                {{ form.description }}
+            </div>
+
+            <div class="form-group">
+                <label>Địa chỉ:</label>
+                {{ form.address }}
+            </div>
+
+            <button type="submit">Lưu địa điểm</button>
+        </form>
+        
+        <br>
+        <a href="{% url 'map_home' %}" style="text-decoration: none; color: #007bff;">← Quay lại trang chủ</a>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // 1. Khởi tạo bản đồ
+        var map = L.map('map').setView([10.762622, 106.660172], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        var marker;
+
+        // 2. Hàm xử lý khi click vào bản đồ
+        map.on('click', function(e) {
+            var lat = e.latlng.lat;
+            var lon = e.latlng.lng;
+
+            // Di chuyển hoặc tạo marker mới
+            if (marker) {
+                marker.setLatLng(e.latlng);
+            } else {
+                marker = L.marker(e.latlng).addTo(map);
+            }
+
+            // --- QUAN TRỌNG: Đẩy tọa độ vào ô Input ẩn ---
+            // Tìm ô input có name="lat" và name="lon"
+            var latInput = document.querySelector('input[name="lat"]');
+            var lonInput = document.querySelector('input[name="lon"]');
+
+            if (latInput && lonInput) {
+                latInput.value = lat;
+                lonInput.value = lon;
+                console.log("Đã cập nhật tọa độ:", lat, lon); // Kiểm tra trong Console
+            } else {
+                alert("Lỗi: Không tìm thấy ô nhập tọa độ ẩn!");
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Bản đồ Ăn Chơi</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { height: 100vh; width: 100%; }
+        
+        /* Nút thêm địa điểm nổi trên map */
+        .btn-add {
+            position: absolute; top: 10px; right: 10px; z-index: 1000;
+            background: #007bff; color: white; padding: 10px 20px;
+            text-decoration: none; font-weight: bold; border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .btn-add:hover { background: #0056b3; }
+
+        /* Style cho nút chỉ đường trong popup */
+        .btn-route {
+            background: #28a745; color: white; border: none;
+            padding: 5px 10px; border-radius: 3px; cursor: pointer;
+            margin-top: 5px; width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <a href="{% url 'add_location' %}" class="btn-add">+ Thêm địa điểm</a>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    
+    <script>
+        // Khởi tạo bản đồ
+        var map = L.map('map').setView([10.762622, 106.660172], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Biến lưu điều khiển dẫn đường (để xóa đi vẽ lại khi chọn điểm khác)
+        var routingControl = null;
+
+        // Dữ liệu từ Django
+        var data = {{ locations_json|safe }};
+
+        // Hàm xử lý khi bấm nút "Chỉ đường"
+        window.startNavigation = function(destLat, destLon) {
+            // 1. Hỏi trình duyệt lấy vị trí hiện tại
+            if (navigator.geolocation) {
+                map.closePopup(); // Đóng popup cho đỡ vướng
+                alert("Đang tìm vị trí của bạn... Vui lòng đợi 1 chút!");
+
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    var userLat = position.coords.latitude;
+                    var userLon = position.coords.longitude;
+
+                    // 2. Xóa đường dẫn cũ (nếu có)
+                    if (routingControl) {
+                        map.removeControl(routingControl);
+                    }
+
+                    // 3. Tạo đường dẫn mới từ User -> Điểm đến
+                    routingControl = L.Routing.control({
+                        waypoints: [
+                            L.latLng(userLat, userLon),  // Điểm đi (Vị trí của bạn)
+                            L.latLng(destLat, destLon)   // Điểm đến (Quán ăn)
+                        ],
+                        routeWhileDragging: true,
+                        language: 'vi', // Tiếng Việt (nếu hỗ trợ) hoặc mặc định En
+                        showAlternatives: true
+                    }).addTo(map);
+
+                    // Zoom bản đồ bao quát cả 2 điểm
+                    var bounds = L.latLngBounds([
+                        [userLat, userLon],
+                        [destLat, destLon]
+                    ]);
+                    map.fitBounds(bounds, {padding: [50, 50]});
+
+                }, function(error) {
+                    alert("Lỗi: Không thể lấy vị trí của bạn. Hãy bật GPS trình duyệt!");
+                });
+            } else {
+                alert("Trình duyệt của bạn không hỗ trợ GPS.");
+            }
+        };
+
+        // Vẽ các địa điểm lên bản đồ
+        L.geoJSON(data, {
+            onEachFeature: function (feature, layer) {
+                // Lấy tọa độ điểm đến (Lưu ý: GeoJSON là [Lon, Lat] còn Leaflet là [Lat, Lon])
+                var lat = feature.geometry.coordinates[1];
+                var lon = feature.geometry.coordinates[0];
+
+                var popupContent = `
+                    <h3>${feature.properties.name}</h3>
+                    <p><b>Danh mục:</b> ${feature.properties.category}</p>
+                    <p><i>${feature.properties.description}</i></p>
+                    <p>📍 ${feature.properties.address}</p>
+                    <hr>
+                    <button class="btn-route" onclick="startNavigation(${lat}, ${lon})">
+                        🚗 Dẫn đường đến đây
+                    </button>
+                    <br><br>
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" style="color:blue; font-size: 0.9em;">
+                        (Mở bằng Google Maps)
+                    </a>
+                `;
+                layer.bindPopup(popupContent);
+            }
+        }).addTo(map);
+
+    </script>
+</body>
+</html>
