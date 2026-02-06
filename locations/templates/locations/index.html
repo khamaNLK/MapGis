@@ -1,44 +1,51 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <title>Bản đồ Ăn Chơi</title>
+{% extends 'locations/base.html' %}
+
+{% block extra_css %}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
 
     <style>
-        body { margin: 0; padding: 0; }
-        #map { height: 100vh; width: 100%; }
-        
-        /* Nút thêm địa điểm nổi trên map */
-        .btn-add {
-            position: absolute; top: 10px; right: 10px; z-index: 1000;
-            background: #007bff; color: white; padding: 10px 20px;
-            text-decoration: none; font-weight: bold; border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        /* Bản đồ full màn hình (trừ đi thanh Navbar 56px) */
+        #map { 
+            height: calc(100vh - 56px); 
+            width: 100%; 
+            z-index: 1; 
         }
-        .btn-add:hover { background: #0056b3; }
 
-        /* Style cho nút chỉ đường trong popup */
-        .btn-route {
-            background: #28a745; color: white; border: none;
-            padding: 5px 10px; border-radius: 3px; cursor: pointer;
-            margin-top: 5px; width: 100%;
+        /* Tùy chỉnh giao diện Popup cho đẹp */
+        .custom-popup .leaflet-popup-content-wrapper { 
+            border-radius: 8px; 
+            padding: 0; 
+            overflow: hidden; 
+            box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+        }
+        .custom-popup .leaflet-popup-content { 
+            margin: 0; 
+            width: 300px !important; 
+        }
+        .popup-header { 
+            background: #0d6efd; /* Màu xanh chủ đạo */
+            color: white; 
+            padding: 12px; 
+            font-weight: bold; 
+            font-size: 1.1em;
+            border-bottom: 2px solid #0a58ca;
+        }
+        .popup-body { 
+            padding: 15px; 
+            background-color: #fff;
         }
     </style>
-</head>
-<body>
+{% endblock %}
 
-    <a href="{% url 'add_location' %}" class="btn-add">+ Thêm địa điểm</a>
-
+{% block content %}
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     
     <script>
-        // Khởi tạo bản đồ
+        // 1. Khởi tạo bản đồ
         var map = L.map('map').setView([10.762622, 106.660172], 13);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -46,40 +53,45 @@
             attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        // Biến lưu điều khiển dẫn đường (để xóa đi vẽ lại khi chọn điểm khác)
+        // Biến lưu điều khiển dẫn đường
         var routingControl = null;
 
         // Dữ liệu từ Django
         var data = {{ locations_json|safe }};
 
-        // Hàm xử lý khi bấm nút "Chỉ đường"
+        // --- HÀM DẪN ĐƯỜNG ---
         window.startNavigation = function(destLat, destLon) {
-            // 1. Hỏi trình duyệt lấy vị trí hiện tại
             if (navigator.geolocation) {
                 map.closePopup(); // Đóng popup cho đỡ vướng
-                alert("Đang tìm vị trí của bạn... Vui lòng đợi 1 chút!");
+                
+                // Hiện thông báo nhỏ (Alert)
+                alert("⏳ Đang tìm vị trí của bạn... Vui lòng chờ!");
 
                 navigator.geolocation.getCurrentPosition(function(position) {
                     var userLat = position.coords.latitude;
                     var userLon = position.coords.longitude;
 
-                    // 2. Xóa đường dẫn cũ (nếu có)
+                    // Xóa đường cũ nếu có
                     if (routingControl) {
                         map.removeControl(routingControl);
                     }
 
-                    // 3. Tạo đường dẫn mới từ User -> Điểm đến
+                    // Vẽ đường mới
                     routingControl = L.Routing.control({
                         waypoints: [
-                            L.latLng(userLat, userLon),  // Điểm đi (Vị trí của bạn)
-                            L.latLng(destLat, destLon)   // Điểm đến (Quán ăn)
+                            L.latLng(userLat, userLon),
+                            L.latLng(destLat, destLon)
                         ],
-                        routeWhileDragging: true,
-                        language: 'vi', // Tiếng Việt (nếu hỗ trợ) hoặc mặc định En
-                        showAlternatives: true
+                        routeWhileDragging: false, // Tắt kéo đường cho nhẹ
+                        language: 'vi', // Tiếng Việt
+                        showAlternatives: true,
+                        lineOptions: {
+                            styles: [{color: '#0d6efd', opacity: 0.7, weight: 6}]
+                        },
+                        createMarker: function() { return null; } // Ẩn marker mặc định của routing cho đỡ rối
                     }).addTo(map);
 
-                    // Zoom bản đồ bao quát cả 2 điểm
+                    // Zoom bao quát
                     var bounds = L.latLngBounds([
                         [userLat, userLon],
                         [destLat, destLon]
@@ -87,38 +99,54 @@
                     map.fitBounds(bounds, {padding: [50, 50]});
 
                 }, function(error) {
-                    alert("Lỗi: Không thể lấy vị trí của bạn. Hãy bật GPS trình duyệt!");
+                    alert("⚠️ Lỗi: Không thể lấy vị trí GPS. Hãy kiểm tra quyền truy cập vị trí trên trình duyệt!");
                 });
             } else {
-                alert("Trình duyệt của bạn không hỗ trợ GPS.");
+                alert("⚠️ Trình duyệt của bạn không hỗ trợ GPS.");
             }
         };
 
-        // Vẽ các địa điểm lên bản đồ
+        // --- VẼ ĐỊA ĐIỂM ---
         L.geoJSON(data, {
             onEachFeature: function (feature, layer) {
-                // Lấy tọa độ điểm đến (Lưu ý: GeoJSON là [Lon, Lat] còn Leaflet là [Lat, Lon])
                 var lat = feature.geometry.coordinates[1];
                 var lon = feature.geometry.coordinates[0];
 
+                // Nội dung Popup (Dùng Bootstrap class)
                 var popupContent = `
-                    <h3>${feature.properties.name}</h3>
-                    <p><b>Danh mục:</b> ${feature.properties.category}</p>
-                    <p><i>${feature.properties.description}</i></p>
-                    <p>📍 ${feature.properties.address}</p>
-                    <hr>
-                    <button class="btn-route" onclick="startNavigation(${lat}, ${lon})">
-                        🚗 Dẫn đường đến đây
-                    </button>
-                    <br><br>
-                    <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" style="color:blue; font-size: 0.9em;">
-                        (Mở bằng Google Maps)
-                    </a>
+                    <div class="popup-header">
+                        ${feature.properties.name}
+                    </div>
+                    <div class="popup-body">
+                        <p class="mb-2">
+                            <span class="badge bg-warning text-dark border border-dark">
+                                ${feature.properties.category}
+                            </span>
+                        </p>
+                        <p class="mb-2 text-muted small">
+                            <i class="fa-solid fa-location-dot text-danger"></i> ${feature.properties.address}
+                        </p>
+                        <p class="mb-3 fst-italic border-start border-3 border-primary ps-2 bg-light">
+                            "${feature.properties.description}"
+                        </p>
+                        
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-success btn-sm fw-bold" onclick="startNavigation(${lat}, ${lon})">
+                                <i class="fa-solid fa-diamond-turn-right"></i> Dẫn đường ngay
+                            </button>
+                            
+                            <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="fa-brands fa-google"></i> Mở Google Maps
+                            </a>
+                        </div>
+                    </div>
                 `;
-                layer.bindPopup(popupContent);
+                
+                layer.bindPopup(popupContent, {
+                    className: 'custom-popup'
+                });
             }
         }).addTo(map);
 
     </script>
-</body>
-</html>
+{% endblock %}

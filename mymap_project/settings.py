@@ -126,3 +126,8 @@ import os # <--- Nhớ thêm dòng này
 # Cấu hình đường dẫn thư viện GIS (Lấy từ Anaconda của bạn)
 GDAL_LIBRARY_PATH = '/Users/MAC/anaconda3/lib/libgdal.dylib'
 GEOS_LIBRARY_PATH = '/Users/MAC/anaconda3/lib/libgeos_c.dylib'
+# ... (các code khác)
+# Sau khi đăng nhập thành công -> Về trang chủ
+LOGIN_REDIRECT_URL = 'map_home'
+# Sau khi đăng xuất -> Về trang chủ
+LOGOUT_REDIRECT_URL = 'map_home'

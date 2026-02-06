@@ -1,0 +1,32 @@
+{% extends 'locations/base.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center">
+                    <h4><i class="fa-solid fa-user-lock"></i> Đăng Nhập</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">{{ field.label }}</label>
+                                {{ field }} </div>
+                        {% endfor %}
+                        
+                        <style> input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; } </style>
+
+                        <button type="submit" class="btn btn-primary w-100 py-2">Đăng Nhập</button>
+                    </form>
+                </div>
+                <div class="card-footer text-center">
+                    <small>Chưa có tài khoản? <a href="{% url 'signup' %}">Đăng ký ngay</a></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
