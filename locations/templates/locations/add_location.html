@@ -3,13 +3,26 @@
 {% block extra_css %}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        /* Layout chia đôi màn hình */
         .full-height { height: calc(100vh - 56px); }
         .sidebar-scroll { overflow-y: auto; height: 100%; background: white; }
-        #map { height: 100%; }
-        input[type="text"], textarea, select { 
-            width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 5px; margin-bottom: 10px; 
+        #map { height: 100%; width: 100%; }
+        
+        /* Style cho thanh tìm kiếm */
+        .search-tool {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
         }
+        .or-divider {
+            display: flex; align-items: center; text-align: center; margin: 10px 0; color: #aaa; font-size: 0.8rem;
+        }
+        .or-divider::before, .or-divider::after {
+            content: ''; flex: 1; border-bottom: 1px solid #ddd;
+        }
+        .or-divider:not(:empty)::before { margin-right: .25em; }
+        .or-divider:not(:empty)::after { margin-left: .25em; }
     </style>
 {% endblock %}
 
@@ -17,61 +30,214 @@
 <div class="container-fluid p-0">
     <div class="row g-0 full-height">
         <div class="col-md-4 col-lg-3 sidebar-scroll p-4 shadow-sm position-relative" style="z-index: 2;">
-            <h4 class="mb-3 text-primary"><i class="fa-solid fa-location-dot"></i> Thêm Địa Điểm</h4>
             
-            <div class="alert alert-info small">
-                <i class="fa-solid fa-circle-info"></i> Click vào bản đồ bên phải để lấy tọa độ, sau đó điền thông tin.
-            </div>
+            <h4 class="mb-3 text-primary">
+                {% if is_edit %}
+                    <i class="fa-solid fa-pen-to-square"></i> Sửa Địa Điểm
+                {% else %}
+                    <i class="fa-solid fa-map-location-dot"></i> Thêm Địa Điểm
+                {% endif %}
+            </h4>
 
-            <form method="POST">
+            <div class="search-tool shadow-sm">
+                <label class="form-label fw-bold small text-muted"><i class="fa-solid fa-magnifying-glass"></i> Tìm vị trí nhanh:</label>
+                
+                <div class="input-group mb-2">
+                    <input type="text" id="search-input" class="form-control" placeholder="Nhập địa chỉ (VD: Chợ Bến Thành)...">
+                    <button class="btn btn-primary" type="button" onclick="searchLocation()">
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+                
+                <div class="or-divider">HOẶC NHẬP TỌA ĐỘ</div>
+
+                <div class="row g-2">
+                    <div class="col-5">
+                        <input type="number" id="manual-lat" class="form-control form-control-sm" placeholder="Vĩ độ (Lat)">
+                    </div>
+                    <div class="col-5">
+                        <input type="number" id="manual-lon" class="form-control form-control-sm" placeholder="Kinh độ (Lon)">
+                    </div>
+                    <div class="col-2">
+                        <button class="btn btn-outline-secondary btn-sm w-100 h-100" onclick="updateFromManualCoords()">
+                            <i class="fa-solid fa-crosshairs"></i>
+                        </button>
+                    </div>
+                </div>
+                <small class="text-muted" style="font-size: 0.75rem;">* Dán tọa độ từ Google Maps vào đây.</small>
+            </div>
+            <form method="POST" enctype="multipart/form-data" id="location-form">
                 {% csrf_token %}
                 
                 {{ form.lat }} {{ form.lon }}
 
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Tên địa điểm</label>
+                    <label class="form-label fw-bold">Tên địa điểm <span class="text-danger">*</span></label>
                     {{ form.name }}
                 </div>
+                
                 <div class="mb-3">
                     <label class="form-label fw-bold">Danh mục</label>
                     {{ form.category }}
                 </div>
+                
                 <div class="mb-3">
                     <label class="form-label fw-bold">Mô tả / Menu</label>
                     {{ form.description }}
                 </div>
+                
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Địa chỉ</label>
+                    <label class="form-label fw-bold">Địa chỉ hiển thị</label>
                     {{ form.address }}
+                    <small class="text-muted d-block mt-1" style="font-size: 0.8em">
+                        <a href="#" onclick="copySearchAddress(); return false;">(Sử dụng địa chỉ vừa tìm kiếm)</a>
+                    </small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Ảnh đại diện</label>
+                    {{ form.image }}
                 </div>
 
                 <button type="submit" class="btn btn-success w-100 py-2 fw-bold">
-                    <i class="fa-solid fa-save"></i> Lưu Địa Điểm
+                    {% if is_edit %}
+                        <i class="fa-solid fa-check"></i> Cập nhật
+                    {% else %}
+                        <i class="fa-solid fa-save"></i> Lưu Địa Điểm
+                    {% endif %}
                 </button>
             </form>
+            
             <div class="mt-3 text-center">
-                <a href="{% url 'map_home' %}" class="text-decoration-none">&larr; Quay lại bản đồ</a>
+                {% if is_edit %}
+                    <a href="javascript:history.back()" class="text-decoration-none text-secondary">Hủy bỏ</a>
+                {% else %}
+                    <a href="{% url 'map_home' %}" class="text-decoration-none text-secondary">&larr; Quay lại bản đồ</a>
+                {% endif %}
             </div>
         </div>
 
-        <div class="col-md-8 col-lg-9">
+        <div class="col-md-8 col-lg-9 position-relative">
             <div id="map"></div>
+            <div id="loading-overlay" style="display:none; position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.7); z-index:9999; align-items:center; justify-content:center;">
+                <div class="spinner-border text-primary" role="status"></div>
+            </div>
         </div>
     </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+    // 1. Khởi tạo bản đồ
     var map = L.map('map').setView([10.762622, 106.660172], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
     
     var marker;
-    map.on('click', function(e) {
-        if (marker) marker.setLatLng(e.latlng);
-        else marker = L.marker(e.latlng).addTo(map);
+    var lastSearchedAddress = ""; // Lưu địa chỉ tìm được để user copy
+
+    // Hàm cập nhật vị trí marker và input
+    function updateLocation(lat, lng, zoom = null) {
+        // 1. Vẽ/Di chuyển marker
+        if (marker) marker.setLatLng([lat, lng]);
+        else marker = L.marker([lat, lng]).addTo(map);
+
+        // 2. Zoom bản đồ (nếu cần)
+        if (zoom) map.setView([lat, lng], zoom);
+        else map.panTo([lat, lng]);
+
+        // 3. Cập nhật vào form ẩn (để gửi về server)
+        document.querySelector('input[name="lat"]').value = lat;
+        document.querySelector('input[name="lon"]').value = lng;
         
-        document.querySelector('input[name="lat"]').value = e.latlng.lat;
-        document.querySelector('input[name="lon"]').value = e.latlng.lng;
+        // 4. Cập nhật vào ô nhập tọa độ thủ công (để user nhìn thấy)
+        document.getElementById('manual-lat').value = lat.toFixed(6);
+        document.getElementById('manual-lon').value = lng.toFixed(6);
+    }
+
+    // ---------------------------------------------------------
+    // TÍNH NĂNG 1: CLICK VÀO BẢN ĐỒ
+    // ---------------------------------------------------------
+    map.on('click', function(e) {
+        updateLocation(e.latlng.lat, e.latlng.lng);
     });
+
+    // ---------------------------------------------------------
+    // TÍNH NĂNG 2: TÌM KIẾM ĐỊA CHỈ (Dùng Nominatim OpenStreetMap - Miễn phí)
+    // ---------------------------------------------------------
+    function searchLocation() {
+        var query = document.getElementById('search-input').value;
+        if (!query) return alert("Vui lòng nhập địa chỉ!");
+
+        // Hiển thị loading
+        document.getElementById('loading-overlay').style.display = 'flex';
+
+        // Gọi API tìm kiếm
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('loading-overlay').style.display = 'none';
+                if (data.length > 0) {
+                    var lat = parseFloat(data[0].lat);
+                    var lon = parseFloat(data[0].lon);
+                    
+                    updateLocation(lat, lon, 16); // Zoom sát vào
+                    lastSearchedAddress = data[0].display_name; // Lưu tên tìm được
+                } else {
+                    alert("Không tìm thấy địa điểm này. Hãy thử từ khóa khác!");
+                }
+            })
+            .catch(err => {
+                document.getElementById('loading-overlay').style.display = 'none';
+                alert("Lỗi kết nối tìm kiếm!");
+            });
+    }
+    
+    // Hỗ trợ bấm Enter trong ô tìm kiếm
+    document.getElementById('search-input').addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+            event.preventDefault(); // Chặn submit form chính
+            searchLocation();
+        }
+    });
+
+    // Copy địa chỉ tìm được vào ô "Địa chỉ hiển thị"
+    window.copySearchAddress = function() {
+        if (lastSearchedAddress) {
+            document.querySelector('input[name="address"]').value = lastSearchedAddress;
+        } else {
+            alert("Bạn chưa tìm kiếm địa chỉ nào!");
+        }
+    };
+
+    // ---------------------------------------------------------
+    // TÍNH NĂNG 3: NHẬP TỌA ĐỘ THỦ CÔNG
+    // ---------------------------------------------------------
+    function updateFromManualCoords() {
+        var lat = parseFloat(document.getElementById('manual-lat').value);
+        var lon = parseFloat(document.getElementById('manual-lon').value);
+
+        if (isNaN(lat) || isNaN(lon)) return alert("Tọa độ không hợp lệ!");
+        updateLocation(lat, lon, 16);
+    }
+
+    // ---------------------------------------------------------
+    // KHỞI TẠO (KHI SỬA HOẶC RELOAD)
+    // ---------------------------------------------------------
+    var initLat = document.querySelector('input[name="lat"]').value;
+    var initLon = document.querySelector('input[name="lon"]').value;
+
+    if (initLat && initLon) {
+        updateLocation(parseFloat(initLat), parseFloat(initLon), 16);
+    } else {
+        // Nếu thêm mới chưa có gì, thử lấy vị trí hiện tại của user
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                // Chỉ pan tới, không đặt marker để tránh user nhầm
+                map.setView([position.coords.latitude, position.coords.longitude], 13);
+            });
+        }
+    }
 </script>
 {% endblock %}

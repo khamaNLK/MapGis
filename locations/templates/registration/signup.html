@@ -1,77 +1,45 @@
 {% extends 'locations/base.html' %}
 
-{% block extra_css %}
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        /* Layout chia đôi màn hình */
-        .full-height { height: calc(100vh - 56px); }
-        .sidebar-scroll { overflow-y: auto; height: 100%; background: white; }
-        #map { height: 100%; }
-        input[type="text"], textarea, select { 
-            width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 5px; margin-bottom: 10px; 
-        }
-    </style>
-{% endblock %}
-
 {% block content %}
-<div class="container-fluid p-0">
-    <div class="row g-0 full-height">
-        <div class="col-md-4 col-lg-3 sidebar-scroll p-4 shadow-sm position-relative" style="z-index: 2;">
-            <h4 class="mb-3 text-primary"><i class="fa-solid fa-location-dot"></i> Thêm Địa Điểm</h4>
-            
-            <div class="alert alert-info small">
-                <i class="fa-solid fa-circle-info"></i> Click vào bản đồ bên phải để lấy tọa độ, sau đó điền thông tin.
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="fa-solid fa-user-plus"></i> Đăng Ký Tài Khoản</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success fw-bold">Đăng Ký Ngay</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer text-center">
+                    Đã có tài khoản? <a href="{% url 'login' %}">Đăng nhập tại đây</a>
+                </div>
             </div>
-
-            <form method="POST">
-                {% csrf_token %}
-                
-                {{ form.lat }} {{ form.lon }}
-
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Tên địa điểm</label>
-                    {{ form.name }}
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Danh mục</label>
-                    {{ form.category }}
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Mô tả / Menu</label>
-                    {{ form.description }}
-                </div>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">Địa chỉ</label>
-                    {{ form.address }}
-                </div>
-
-                <button type="submit" class="btn btn-success w-100 py-2 fw-bold">
-                    <i class="fa-solid fa-save"></i> Lưu Địa Điểm
-                </button>
-            </form>
-            <div class="mt-3 text-center">
-                <a href="{% url 'map_home' %}" class="text-decoration-none">&larr; Quay lại bản đồ</a>
-            </div>
-        </div>
-
-        <div class="col-md-8 col-lg-9">
-            <div id="map"></div>
         </div>
     </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-    var map = L.map('map').setView([10.762622, 106.660172], 13);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    
-    var marker;
-    map.on('click', function(e) {
-        if (marker) marker.setLatLng(e.latlng);
-        else marker = L.marker(e.latlng).addTo(map);
-        
-        document.querySelector('input[name="lat"]').value = e.latlng.lat;
-        document.querySelector('input[name="lon"]').value = e.latlng.lng;
-    });
-</script>
+<style>
+    input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    ul { list-style: none; padding: 0; margin: 0; }
+</style>
 {% endblock %}

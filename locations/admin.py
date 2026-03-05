@@ -1,11 +1,15 @@
 from django.contrib import admin
 from django.contrib.gis.admin import GISModelAdmin
-from .models import Location, Category, Review
+from .models import Location, Category, Review, UserProfile
 
-# Đăng ký Model Location để hiện bản đồ trong Admin
+# 1. Quản lý Địa điểm (Có bản đồ)
 @admin.register(Location)
 class LocationAdmin(GISModelAdmin):
-    list_display = ('name', 'category', 'address', 'created_at')
+    list_display = ('name', 'category', 'address', 'creator', 'created_at') # Các cột hiển thị
+    search_fields = ('name', 'address') # Thanh tìm kiếm
+    list_filter = ('category', 'created_at') # Bộ lọc bên phải
+    
+    # Cấu hình bản đồ trong Admin
     gis_widget_kwargs = {
         'attrs': {
             'default_zoom': 13,
@@ -14,8 +18,14 @@ class LocationAdmin(GISModelAdmin):
         }
     }
 
-# Đăng ký Model Category (Cái bạn đang thiếu)
-admin.site.register(Category)
+# 2. Quản lý Danh mục
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'icon_name')
 
-# Đăng ký Model Review
-admin.site.register(Review)
+# 3. Quản lý Đánh giá
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ('user', 'location', 'rating', 'created_at')
+    list_filter = ('rating', 'created_at')
+admin.site.register(UserProfile)

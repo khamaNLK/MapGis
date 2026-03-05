@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -131,3 +131,6 @@ GEOS_LIBRARY_PATH = '/Users/MAC/anaconda3/lib/libgeos_c.dylib'
 LOGIN_REDIRECT_URL = 'map_home'
 # Sau khi đăng xuất -> Về trang chủ
 LOGOUT_REDIRECT_URL = 'map_home'
+# Cấu hình Media (Nơi lưu ảnh upload)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

@@ -1,0 +1,138 @@
+{% extends 'locations/base.html' %}
+
+{% block extra_css %}
+<style>
+    /* Avatar chữ cái giống Google */
+    .user-avatar {
+        width: 40px; height: 40px;
+        background-color: #f56a00; color: white;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: bold; font-size: 18px;
+        margin-right: 10px;
+    }
+    .star-rating { color: #ffc107; } /* Màu vàng của sao */
+    .review-img {
+        max-width: 150px; height: 100px; object-fit: cover;
+        border-radius: 8px; margin-top: 10px; cursor: pointer;
+        border: 1px solid #ddd;
+    }
+    .review-img:hover { opacity: 0.8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0">
+                
+                {% if location.image %}
+                    <img src="{{ location.image.url }}" alt="{{ location.name }}" class="card-img-top" style="height: 200px; object-fit: cover;">
+                {% else %}
+                    <div style="height: 200px; background: #eee; display: flex; align-items: center; justify-content: center; color: #aaa;">
+                        <i class="fa-solid fa-image fa-3x"></i>
+                    </div>
+                {% endif %}
+                
+                <div class="card-body">
+                    <h2 class="fw-bold">{{ location.name }}</h2>
+                    <p class="text-warning fs-4 mb-1">
+                        {{ avg_rating }} <i class="fa-solid fa-star"></i> 
+                        <span class="text-muted fs-6">({{ reviews.count }} đánh giá)</span>
+                    </p>
+                    <p class="text-muted">{{ location.category }}</p>
+                    <hr>
+                    <p><i class="fa-solid fa-location-dot text-primary"></i> {{ location.address }}</p>
+                    <p class="fst-italic">"{{ location.description }}"</p>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'map_home' %}" class="btn btn-outline-primary">
+                            <i class="fa-solid fa-arrow-left"></i> Quay lại bản đồ
+                        </a>
+
+                        {% if user.is_authenticated and user.is_staff or user == location.creator %}
+                            <hr class="my-2">
+                            <div class="d-flex gap-2">
+                                <a href="{% url 'edit_location' location.pk %}" class="btn btn-warning flex-fill fw-bold text-dark">
+                                    <i class="fa-solid fa-pen"></i> Sửa
+                                </a>
+                                <a href="{% url 'delete_location' location.pk %}" class="btn btn-danger flex-fill fw-bold">
+                                    <i class="fa-solid fa-trash"></i> Xóa
+                                </a>
+                            </div>
+                        {% endif %}
+                        </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body">
+                    <h5 class="fw-bold">Viết đánh giá của bạn</h5>
+                    {% if user.is_authenticated %}
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">Điểm số:</label>
+                                    {{ form.rating }}
+                                </div>
+                                <div class="col-md-9">
+                                    <label class="form-label">Ảnh đính kèm (nếu có):</label>
+                                    {{ form.image }}
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                {{ form.comment }}
+                            </div>
+                            <button type="submit" class="btn btn-primary px-4">Đăng bài</button>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            Bạn cần <a href="{% url 'login' %}" class="fw-bold">đăng nhập</a> để viết đánh giá và đăng ảnh.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <h4 class="mb-3">Bài đánh giá</h4>
+            {% for review in reviews %}
+                <div class="card mb-3 border-0 border-bottom">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="user-avatar">
+                                {{ review.user.username|slice:":1"|upper }}
+                            </div>
+                            <div>
+                                <h6 class="mb-0 fw-bold">{{ review.user.username }}</h6>
+                                <small class="text-muted">{{ review.created_at|date:"d/m/Y" }}</small>
+                            </div>
+                        </div>
+
+                        <div class="star-rating mb-2">
+                            {% for i in "12345"|make_list %}
+                                <i class="fa-solid fa-star {% if forloop.counter > review.rating %}text-muted{% endif %}"></i>
+                            {% endfor %}
+                        </div>
+
+                        <p class="card-text">{{ review.comment }}</p>
+
+                        {% if review.image %}
+                            <a href="{{ review.image.url }}" target="_blank">
+                                <img src="{{ review.image.url }}" class="review-img" alt="Review Image">
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% empty %}
+                <div class="text-center py-5 text-muted">
+                    <i class="fa-regular fa-comment-dots fa-3x mb-3"></i>
+                    <p>Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

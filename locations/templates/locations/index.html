@@ -5,148 +5,279 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
 
     <style>
-        /* Bản đồ full màn hình (trừ đi thanh Navbar 56px) */
-        #map { 
-            height: calc(100vh - 56px); 
-            width: 100%; 
-            z-index: 1; 
+        #map { height: calc(100vh - 56px); width: 100%; z-index: 1; background: #1a1a1a; }
+
+        /* --- UI GLASSMORPHISM --- */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15);
         }
 
-        /* Tùy chỉnh giao diện Popup cho đẹp */
-        .custom-popup .leaflet-popup-content-wrapper { 
-            border-radius: 8px; 
-            padding: 0; 
-            overflow: hidden; 
-            box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+        .quick-search-bar {
+            position: absolute; top: 75px; left: 50%; transform: translateX(-50%); z-index: 9999;
+            padding: 8px 12px; border-radius: 50px; display: flex; gap: 8px; align-items: center;
+            flex-wrap: wrap; justify-content: center; width: max-content; max-width: 95%;
         }
-        .custom-popup .leaflet-popup-content { 
-            margin: 0; 
-            width: 300px !important; 
+        .btn-quick {
+            border: none; background: rgba(255,255,255,0.9); padding: 8px 15px; border-radius: 20px; 
+            font-weight: 700; font-size: 0.85rem; color: #333; cursor: pointer; transition: 0.2s; 
+            display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        .popup-header { 
-            background: #0d6efd; /* Màu xanh chủ đạo */
-            color: white; 
-            padding: 12px; 
-            font-weight: bold; 
-            font-size: 1.1em;
-            border-bottom: 2px solid #0a58ca;
+        .btn-quick:hover { transform: scale(1.05); background: #fff; color: #0d6efd; }
+        .btn-quick.active-tool { background: #fd7e14; color: white; }
+
+        /* --- AVATAR & STATUS BUBBLE --- */
+        .friend-marker-container { text-align: center; display: flex; flex-direction: column; align-items: center; transition: 0.3s; position: relative;}
+        .friend-marker-container:hover { transform: scale(1.1); z-index: 1000 !important; }
+        .friend-marker-container img { width: 50px; height: 50px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); object-fit: cover; position: relative; z-index: 2; }
+        .friend-marker-name { background: rgba(0,0,0,0.7); color: white; font-size: 11px; padding: 3px 10px; border-radius: 12px; display: inline-block; margin-top: -10px; position: relative; z-index: 3; font-weight: bold; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2); }
+        
+        .status-bubble {
+            position: absolute; top: -35px; left: 50%; transform: translateX(-50%);
+            background: #fff; color: #111; padding: 5px 12px; border-radius: 15px;
+            font-size: 11px; font-weight: 800; white-space: nowrap; z-index: 4;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); animation: floatBubble 2.5s infinite ease-in-out; border: 2px solid #0d6efd;
         }
-        .popup-body { 
-            padding: 15px; 
-            background-color: #fff;
-        }
+        .status-bubble::after { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border-width: 6px 6px 0; border-style: solid; border-color: #0d6efd transparent transparent transparent; }
+        @keyframes floatBubble { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -6px); } }
+        
+        .pulse-animation img { animation: pulse 2s infinite; border-color: #0d6efd; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.8); } 70% { box-shadow: 0 0 0 15px rgba(13, 110, 253, 0); } 100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0); } }
+
+        /* --- DANH SÁCH BẠN BÈ --- */
+        .friends-panel { position: absolute; top: 140px; right: 20px; z-index: 999; width: 280px; border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; transition: all 0.3s; }
+        .friends-header { background: rgba(255,255,255,0.9); padding: 15px; font-weight: 900; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: #111; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .friends-list { overflow-y: auto; max-height: calc(100vh - 350px); padding: 5px 10px; transition: max-height 0.3s; }
+        .friend-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); cursor: pointer; transition: 0.2s; border-radius: 12px; }
+        .friend-item:hover { background: rgba(255,255,255,0.95); transform: translateX(-5px); box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+        .friend-info { display: flex; align-items: center; gap: 12px; }
+        .friend-info img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .battery-pill { font-size: 0.75rem; background: #e0f8e9; color: #198754; padding: 4px 8px; border-radius: 12px; font-weight: 800; }
+
+        /* --- CÁC NÚT ĐIỀU KHIỂN & TRẠNG THÁI MỚI --- */
+        .map-controls-bottom { position: absolute; bottom: 30px; left: 20px; z-index: 999; display: flex; gap: 8px; flex-wrap: wrap; max-width: 60%; }
+        .btn-follow { position: absolute; bottom: 30px; right: 20px; z-index: 999; width: 50px; height: 50px; border-radius: 50%; border: none; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #444; transition: 0.3s; }
+        .btn-follow.tracking { color: #0d6efd; animation: pulse 2s infinite; }
+        
+        .status-updater { position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); z-index: 999; border-radius: 30px; display: flex; gap: 5px; padding: 6px 12px; align-items: center; }
+        .status-updater input { border: none; outline: none; background: transparent; width: 150px; font-size: 0.9rem; font-weight: bold; color: #333; }
+        .status-updater input::placeholder { color: #888; font-weight: normal; }
+
+        .emoji-fly { position: fixed; pointer-events: none; z-index: 10000; font-size: 40px; animation: flyUp 1.5s ease-out forwards; }
+        @keyframes flyUp { 0% { transform: translateY(0) scale(0.5) rotate(0deg); opacity: 1; } 50% { transform: translateY(-100px) scale(1.5) rotate(15deg); opacity: 1; } 100% { transform: translateY(-200px) scale(2) rotate(-15deg); opacity: 0; } }
+        .leaflet-popup-content-wrapper { border-radius: 16px !important; background: rgba(255,255,255,0.95) !important; backdrop-filter: blur(10px); }
     </style>
 {% endblock %}
 
 {% block content %}
+    <div class="quick-search-bar glass-panel">
+        <button class="btn-quick" onclick="findNearestByCategory('Quán ăn')">🍜 Quán ăn</button>
+        <button class="btn-quick" onclick="findNearestByCategory('Cafe')">☕ Cafe</button>
+        <div style="width: 2px; height: 20px; background: rgba(0,0,0,0.1); margin: 0 5px;"></div>
+        
+        <button id="btn-ruler" class="btn-quick" onclick="toggleRulerMode()">📏 Đo</button>
+        <button id="btn-area" class="btn-quick" onclick="toggleAreaMode()">📐 Diện tích</button>
+        <div class="d-flex align-items-center gap-1 bg-white px-2 py-1 shadow-sm" style="border-radius: 20px;">
+            <button id="btn-buffer" class="btn-quick shadow-none m-0 p-1 bg-transparent" onclick="toggleBufferMode()">🎯 Radar</button>
+            <input type="number" id="buffer-radius" value="2" min="0.1" max="100" step="0.5" style="width: 45px; border: none; font-weight: bold; color: #fd7e14; text-align: center; outline: none; background: #fff3cd; border-radius: 5px;">
+            <span class="text-muted small fw-bold">km</span>
+        </div>
+        
+        <div style="width: 2px; height: 20px; background: rgba(0,0,0,0.1); margin: 0 5px;"></div>
+        <button class="btn-quick" onclick="generateNightTour()" style="background: linear-gradient(135deg, #6f42c1, #d63384); color: white;">
+            <i class="fa-solid fa-moon"></i> Tour Tối
+        </button>
+    </div>
+
+    <div class="friends-panel glass-panel">
+        <div class="friends-header" onclick="toggleFriendsList()">
+            <span><i class="fa-solid fa-earth-americas text-primary"></i> Bạn bè (<span id="friend-count">0</span>)</span>
+            <i class="fa-solid fa-chevron-down text-muted" id="friend-toggle-icon"></i>
+        </div>
+        <div class="friends-list" id="friends-list-container"></div>
+    </div>
+
+    <div class="status-updater glass-panel">
+        <span class="fs-5">💭</span>
+        <input type="text" id="my-status-input" placeholder="Bạn đang làm gì?">
+        <button class="btn btn-sm btn-primary rounded-pill fw-bold" onclick="sendMyStatus()" style="font-size: 0.75rem;">Đăng</button>
+    </div>
+
+    <div class="map-controls-bottom glass-panel p-1 rounded-pill">
+        <button class="btn btn-sm btn-light rounded-pill fw-bold" onclick="changeMapLayer('satellite')">🛰️ Vệ tinh</button>
+        <button class="btn btn-sm btn-dark rounded-pill fw-bold" onclick="changeMapLayer('dark')">🌙 Ban đêm</button>
+        <button class="btn btn-sm btn-light rounded-pill fw-bold" onclick="changeMapLayer('street')">🗺️ Phố</button>
+    </div>
+
+    <button id="btn-follow" class="btn-follow glass-panel" onclick="toggleFollowMode()">
+        <i class="fa-solid fa-location-crosshairs"></i>
+    </button>
+
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
     
     <script>
-        // 1. Khởi tạo bản đồ
-        var map = L.map('map').setView([10.762622, 106.660172], 13);
+        var map = L.map('map', { zoomControl: false }).setView([10.762622, 106.660172], 14);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
+        var currentTileLayer = null;
+        window.changeMapLayer = function(type) {
+            if (currentTileLayer) map.removeLayer(currentTileLayer);
+            if (type === 'satellite') { currentTileLayer = L.tileLayer('http://mt0.google.com/vt/lyrs=y&hl=vi&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map); }
+            else if (type === 'dark') { currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map); }
+            else { currentTileLayer = L.tileLayer('http://mt0.google.com/vt/lyrs=m&hl=vi&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map); }
+        };
+        changeMapLayer('satellite');
 
-        // Biến lưu điều khiển dẫn đường
-        var routingControl = null;
-
-        // Dữ liệu từ Django
         var data = {{ locations_json|safe }};
-
-        // --- HÀM DẪN ĐƯỜNG ---
-        window.startNavigation = function(destLat, destLon) {
-            if (navigator.geolocation) {
-                map.closePopup(); // Đóng popup cho đỡ vướng
-                
-                // Hiện thông báo nhỏ (Alert)
-                alert("⏳ Đang tìm vị trí của bạn... Vui lòng chờ!");
-
-                navigator.geolocation.getCurrentPosition(function(position) {
-                    var userLat = position.coords.latitude;
-                    var userLon = position.coords.longitude;
-
-                    // Xóa đường cũ nếu có
-                    if (routingControl) {
-                        map.removeControl(routingControl);
-                    }
-
-                    // Vẽ đường mới
-                    routingControl = L.Routing.control({
-                        waypoints: [
-                            L.latLng(userLat, userLon),
-                            L.latLng(destLat, destLon)
-                        ],
-                        routeWhileDragging: false, // Tắt kéo đường cho nhẹ
-                        language: 'vi', // Tiếng Việt
-                        showAlternatives: true,
-                        lineOptions: {
-                            styles: [{color: '#0d6efd', opacity: 0.7, weight: 6}]
-                        },
-                        createMarker: function() { return null; } // Ẩn marker mặc định của routing cho đỡ rối
-                    }).addTo(map);
-
-                    // Zoom bao quát
-                    var bounds = L.latLngBounds([
-                        [userLat, userLon],
-                        [destLat, destLon]
-                    ]);
-                    map.fitBounds(bounds, {padding: [50, 50]});
-
-                }, function(error) {
-                    alert("⚠️ Lỗi: Không thể lấy vị trí GPS. Hãy kiểm tra quyền truy cập vị trí trên trình duyệt!");
-                });
-            } else {
-                alert("⚠️ Trình duyệt của bạn không hỗ trợ GPS.");
-            }
+        var currentUserName = "{{ user.username|default:'Khách' }}";
+        
+        // ----------------------------------------------------
+        // HỆ THỐNG BẠN BÈ TỪ DATABASE + DẪN ĐƯỜNG
+        // ----------------------------------------------------
+        window.toggleFriendsList = function() {
+            let list = document.getElementById('friends-list-container'); let icon = document.getElementById('friend-toggle-icon');
+            if (list.style.display === 'none') { list.style.display = 'block'; icon.classList.replace('fa-chevron-up', 'fa-chevron-down'); }
+            else { list.style.display = 'none'; icon.classList.replace('fa-chevron-down', 'fa-chevron-up'); }
         };
 
-        // --- VẼ ĐỊA ĐIỂM ---
-        L.geoJSON(data, {
-            onEachFeature: function (feature, layer) {
-                var lat = feature.geometry.coordinates[1];
-                var lon = feature.geometry.coordinates[0];
+        const friendsListDiv = document.getElementById('friends-list-container');
+        let friendLayerGroup = L.layerGroup().addTo(map);
 
-                // Nội dung Popup (Dùng Bootstrap class)
-                var popupContent = `
-                    <div class="popup-header">
-                        ${feature.properties.name}
-                    </div>
-                    <div class="popup-body">
-                        <p class="mb-2">
-                            <span class="badge bg-warning text-dark border border-dark">
-                                ${feature.properties.category}
-                            </span>
-                        </p>
-                        <p class="mb-2 text-muted small">
-                            <i class="fa-solid fa-location-dot text-danger"></i> ${feature.properties.address}
-                        </p>
-                        <p class="mb-3 fst-italic border-start border-3 border-primary ps-2 bg-light">
-                            "${feature.properties.description}"
-                        </p>
+        window.shootEmoji = function(emoji, lat, lng) {
+            map.closePopup(); map.flyTo([lat, lng], 17, { animate: true, duration: 1 });
+            setTimeout(() => {
+                for(let i=0; i<15; i++) {
+                    let el = document.createElement('div'); el.className = 'emoji-fly'; el.innerText = emoji;
+                    el.style.left = (window.innerWidth / 2 - 50 + Math.random() * 100) + 'px';
+                    el.style.top = (window.innerHeight / 2 + Math.random() * 50) + 'px';
+                    el.style.animationDelay = (Math.random() * 0.5) + 's'; document.body.appendChild(el);
+                    setTimeout(() => el.remove(), 2000);
+                }
+            }, 1000);
+        };
+
+        // Gửi API Trạng thái của tôi
+        window.sendMyStatus = function() {
+            let statusText = document.getElementById('my-status-input').value;
+            fetch('/api/update_status/', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: statusText })
+            }).then(() => {
+                alert("Đã cập nhật trạng thái!");
+                // Cập nhật lên Avatar của chính mình ngay lập tức (UI)
+                if(myStatusDiv) myStatusDiv.innerHTML = `<div class="status-bubble">${statusText}</div>`;
+            });
+        };
+
+        function fetchFriendsData() {
+            fetch('/api/friends/')
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    let friends = data.friends;
+                    document.getElementById('friend-count').innerText = friends.length;
+                    friendLayerGroup.clearLayers(); friendsListDiv.innerHTML = '';
+
+                    friends.forEach(f => {
+                        let statusHtml = f.status ? `<div class="status-bubble">${f.status}</div>` : '';
+                        let icon = L.divIcon({ className: 'custom-friend-icon', html: `<div class="friend-marker-container">${statusHtml}<img src="${f.avatar}"><div class="friend-marker-name">${f.name}</div></div>`, iconSize: [60, 90], iconAnchor: [30, 45] });
                         
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-success btn-sm fw-bold" onclick="startNavigation(${lat}, ${lon})">
-                                <i class="fa-solid fa-diamond-turn-right"></i> Dẫn đường ngay
-                            </button>
-                            
-                            <a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" class="btn btn-outline-primary btn-sm">
-                                <i class="fa-brands fa-google"></i> Mở Google Maps
-                            </a>
-                        </div>
-                    </div>
-                `;
-                
-                layer.bindPopup(popupContent, {
-                    className: 'custom-popup'
-                });
-            }
-        }).addTo(map);
+                        // THÊM NÚT DẪN ĐƯỜNG VÀO POPUP BẠN BÈ
+                        L.marker([f.lat, f.lng], {icon: icon, zIndexOffset: 100}).addTo(friendLayerGroup)
+                         .bindPopup(`
+                            <div class="text-center p-2">
+                                <img src="${f.avatar}" style="width:60px; border-radius:50%; margin-bottom:10px;"><br>
+                                <h5 class="fw-bold mb-1">${f.name}</h5>
+                                <p class="mb-2 fw-bold ${f.battery < 20 ? 'text-danger' : 'text-success'}">🔋 Đang sạc: ${f.battery}%</p>
+                                <div class="d-flex justify-content-center gap-2 mt-2 mb-2">
+                                    <button class="btn btn-light fs-4 p-1 shadow-sm" onclick="shootEmoji('💩', ${f.lat}, ${f.lng})">💩</button>
+                                    <button class="btn btn-light fs-4 p-1 shadow-sm" onclick="shootEmoji('❤️', ${f.lat}, ${f.lng})">❤️</button>
+                                </div>
+                                <button class="btn btn-primary btn-sm w-100 fw-bold" onclick="startNavigation(${f.lat}, ${f.lng})"><i class="fa-solid fa-car"></i> Dẫn đường tới đây</button>
+                            </div>
+                         `);
 
+                        friendsListDiv.innerHTML += `<div class="friend-item" onclick="map.flyTo([${f.lat}, ${f.lng}], 17);"><div class="friend-info"><img src="${f.avatar}"><div><span class="fw-bold text-dark d-block" style="line-height: 1;">${f.name}</span>${f.status ? `<small class="text-muted" style="font-size: 0.75rem;">${f.status}</small>` : ''}</div></div><div class="battery-pill" style="${f.battery < 20 ? 'background:#f8d7da; color:#dc3545;' : ''}">🔋 ${f.battery}%</div></div>`;
+                    });
+                }
+            });
+        }
+        fetchFriendsData();
+        setInterval(fetchFriendsData, 10000); // 10s load lại bạn bè 1 lần
+
+        // ----------------------------------------------------
+        // ĐỊNH VỊ CỦA BẠN (KÈM TRẠNG THÁI) & GỬI LÊN SERVER
+        // ----------------------------------------------------
+        var userCurrentMarker = null; var isFollowMode = false; var myStatusDiv = null;
+
+        window.toggleFollowMode = function() {
+            isFollowMode = !isFollowMode; let btn = document.getElementById('btn-follow');
+            if (isFollowMode) { btn.classList.add('tracking'); if (userCurrentMarker) map.flyTo(userCurrentMarker.getLatLng(), 17); } 
+            else { btn.classList.remove('tracking'); }
+        };
+        map.on('dragstart', function() { isFollowMode = false; document.getElementById('btn-follow').classList.remove('tracking'); });
+
+        function sendLocationToServer(lat, lng, battery) {
+            fetch('/api/update_location/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: lat, lng: lng, battery: battery }) });
+        }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(function(position) {
+                let lat = position.coords.latitude, lng = position.coords.longitude;
+                
+                if (userCurrentMarker) { userCurrentMarker.setLatLng([lat, lng]); } 
+                else {
+                    let iconHtml = `<div class="friend-marker-container pulse-animation"><div id="my-status-container"></div><img src="https://ui-avatars.com/api/?name=${currentUserName}&background=0D8ABC&color=fff&size=128"><div class="friend-marker-name">TÔI</div></div>`;
+                    var myAvatarIcon = L.divIcon({ className: 'user-avatar-marker', html: iconHtml, iconSize: [60, 70], iconAnchor: [30, 35] });
+                    userCurrentMarker = L.marker([lat, lng], {icon: myAvatarIcon, zIndexOffset: 1000}).addTo(map);
+                    myStatusDiv = document.getElementById('my-status-container'); // Gắn biến để đổi trạng thái UI sau
+                    map.setView([lat, lng], 15);
+                }
+                if (isFollowMode) map.panTo([lat, lng]);
+
+                if ('getBattery' in navigator) {
+                    navigator.getBattery().then(b => sendLocationToServer(lat, lng, Math.round(b.level * 100)));
+                } else { sendLocationToServer(lat, lng, 100); }
+            }, err => console.log("Lỗi GPS"), { enableHighAccuracy: true });
+        }
+
+        // ----------------------------------------------------
+        // KHỐI TÍNH NĂNG GIS & DẪN ĐƯỜNG
+        // ----------------------------------------------------
+        var routingControl = null;
+        window.startNavigation = function(destLat, destLon) {
+            if (!navigator.geolocation) return alert("Lỗi GPS");
+            map.closePopup(); navigator.geolocation.getCurrentPosition(function(position) {
+                if (routingControl) map.removeControl(routingControl);
+                routingControl = L.Routing.control({ waypoints: [L.latLng(position.coords.latitude, position.coords.longitude), L.latLng(destLat, destLon)], routeWhileDragging: false, language: 'vi', showAlternatives: true, lineOptions: { styles: [{color: '#0d6efd', opacity: 0.7, weight: 6}] }, createMarker: () => null }).addTo(map);
+            });
+        };
+
+        // GIS Toán học thuần túy (Thu gọn để tập trung)
+        let isRulerMode = false, isAreaMode = false, isBufferMode = false; let rulerPoints = [], totalDistanceKm = 0, areaPoints = []; let gisLayerGroup = L.layerGroup().addTo(map);
+        function resetAllGisModes() { isRulerMode = isAreaMode = isBufferMode = false; document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active-tool')); document.getElementById('map').style.cursor = ''; gisLayerGroup.clearLayers(); rulerPoints = []; areaPoints = []; totalDistanceKm = 0; }
+        window.toggleRulerMode = function() { let wasActive = isRulerMode; resetAllGisModes(); if (!wasActive) { isRulerMode = true; document.getElementById('btn-ruler').classList.add('active-tool'); document.getElementById('map').style.cursor = 'crosshair'; } };
+        window.toggleAreaMode = function() { let wasActive = isAreaMode; resetAllGisModes(); if (!wasActive) { isAreaMode = true; document.getElementById('btn-area').classList.add('active-tool'); document.getElementById('map').style.cursor = 'crosshair'; } };
+        window.toggleBufferMode = function() { let wasActive = isBufferMode; resetAllGisModes(); if (!wasActive) { isBufferMode = true; document.getElementById('btn-buffer').classList.add('active-tool'); document.getElementById('map').style.cursor = 'crosshair'; } };
+
+        const R_EARTH = 6371; const toRad = a => a * Math.PI / 180; const toDeg = a => a * 180 / Math.PI;
+        function haversineDist(lat1, lon1, lat2, lon2) { const a = Math.sin(toRad(lat2-lat1)/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(toRad(lon2-lon1)/2)**2; return R_EARTH * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); }
+        function getDestPoint(lat, lng, distKm, bearingDeg) { const d = distKm / R_EARTH, brng = toRad(bearingDeg), lat1 = toRad(lat), lon1 = toRad(lng); const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng)); const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)); return [toDeg(lat2), toDeg(lon2)]; }
+        function sphericalArea(locations) { if (locations.length < 3) return 0; let area = 0; for (let i = 0; i < locations.length; i++) { let p1 = locations[i], p2 = locations[(i + 1) % locations.length]; area += (toRad(p2.lng) - toRad(p1.lng)) * (Math.sin(toRad(p1.lat)) + Math.sin(toRad(p2.lat))); } return Math.abs((area * 6371000 * 6371000) / 2.0); }
+
+        map.on('click', function(e) {
+            if (!isRulerMode && !isAreaMode && !isBufferMode) return;
+            if (isRulerMode) { rulerPoints.push(e.latlng); L.circleMarker(e.latlng, {radius: 5, color: '#dc3545', fillColor: '#dc3545', fillOpacity: 1}).addTo(gisLayerGroup); if (rulerPoints.length === 1) { L.popup({closeButton: false, autoClose: false}).setLatLng(e.latlng).setContent("<b class='text-danger'>Mốc 1</b>").addTo(gisLayerGroup); } else { let p1 = rulerPoints[rulerPoints.length - 2], p2 = rulerPoints[rulerPoints.length - 1]; L.polyline([p1, p2], {color: '#dc3545', dashArray: '5,5', weight: 3}).addTo(gisLayerGroup); totalDistanceKm += haversineDist(p1.lat, p1.lng, p2.lat, p2.lng); L.popup({closeButton: false, autoClose: false}).setLatLng(p2).setContent(`<div class='text-center text-danger'>Tổng:<br><b>${totalDistanceKm.toFixed(2)}km</b></div>`).addTo(gisLayerGroup); } }
+            if (isAreaMode) { areaPoints.push(e.latlng); L.circleMarker(e.latlng, {radius: 4, color: '#0dcaf0', fillColor: '#0dcaf0', fillOpacity: 1}).addTo(gisLayerGroup); gisLayerGroup.eachLayer(layer => { if (layer instanceof L.Polygon) gisLayerGroup.removeLayer(layer); }); if (areaPoints.length >= 3) { L.polygon(areaPoints, {color: '#0dcaf0', fillColor: '#0dcaf0', fillOpacity: 0.4}).addTo(gisLayerGroup); let aSq = sphericalArea(areaPoints); let disp = aSq >= 1e6 ? (aSq/1e6).toFixed(2)+" km²" : (aSq >= 1e4 ? (aSq/1e4).toFixed(2)+" ha" : aSq.toFixed(1)+" m²"); L.popup({closeButton: false, autoClose: false}).setLatLng(e.latlng).setContent(`Khu vực:<br><b class='text-info'>${disp}</b>`).addTo(gisLayerGroup); } }
+            if (isBufferMode) { gisLayerGroup.clearLayers(); let rKm = parseFloat(document.getElementById('buffer-radius').value) || 2.0; let circleCoords = []; for (let angle = 0; angle <= 360; angle += 6) circleCoords.push(getDestPoint(e.latlng.lat, e.latlng.lng, rKm, angle)); L.polygon(circleCoords, {color: '#fd7e14', weight: 2, fillColor: '#fd7e14', fillOpacity: 0.3}).addTo(gisLayerGroup); L.circleMarker(e.latlng, {radius: 5, color: '#000', fillColor: '#fff', fillOpacity: 1}).addTo(gisLayerGroup); let found = []; data.features.forEach(f => { let pLat = f.geometry.coordinates[1], pLng = f.geometry.coordinates[0]; let dist = haversineDist(e.latlng.lat, e.latlng.lng, pLat, pLng); if (dist <= rKm) { found.push(`<li><b>${f.properties.name}</b> <small>(${dist.toFixed(1)}km)</small></li>`); L.circleMarker([pLat, pLng], {radius: 8, color: '#fff', fillColor: '#28a745', fillOpacity: 1, weight: 2}).addTo(gisLayerGroup); } }); L.popup({maxWidth: 250}).setLatLng(e.latlng).setContent(`<div class="fw-bold text-warning border-bottom pb-1 mb-1">Radar ${rKm}km</div><div style="max-height:150px; overflow-y:auto;">${found.length ? `<ul class="ps-3 mb-0" style="font-size:0.9em;">${found.join('')}</ul>` : 'Trống.'}</div>`).openOn(map); }
+        });
+
+        window.findNearestByCategory = function(categoryName) { if (!navigator.geolocation) return; navigator.geolocation.getCurrentPosition(function(position) { var userLoc = L.latLng(position.coords.latitude, position.coords.longitude); var c = data.features.filter(f => (f.properties.category || "").toLowerCase().includes(categoryName.toLowerCase())); if (c.length === 0) return alert(`Không tìm thấy '${categoryName}'`); var nearest = null, minDist = Infinity; c.forEach(f => { var dist = userLoc.distanceTo(L.latLng(f.geometry.coordinates[1], f.geometry.coordinates[0])); if (dist < minDist) { minDist = dist; nearest = f; } }); if (nearest) startNavigation(nearest.geometry.coordinates[1], nearest.geometry.coordinates[0]); }); };
+        window.generateNightTour = function() { if (!navigator.geolocation) return; resetAllGisModes(); navigator.geolocation.getCurrentPosition(function(position) { let userLoc = L.latLng(position.coords.latitude, position.coords.longitude); let getNear = (from, cats, ex) => { let min = Infinity, res = null; data.features.forEach(f => { if (f.properties.pk === ex) return; if (cats.some(c => (f.properties.category||"").toLowerCase().includes(c.toLowerCase()))) { let d = from.distanceTo(L.latLng(f.geometry.coordinates[1], f.geometry.coordinates[0])); if (d < min) { min = d; res = f; } } }); return res; }; let d1 = getNear(userLoc, ['Quán ăn', 'Nhà hàng'], null); if (!d1) return alert("Hết chỗ ăn!"); let dLoc = L.latLng(d1.geometry.coordinates[1], d1.geometry.coordinates[0]); let d2 = getNear(dLoc, ['Cafe', 'Quán nhậu'], d1.properties.pk); if (!d2) return startNavigation(dLoc.lat, dLoc.lng); let cLoc = L.latLng(d2.geometry.coordinates[1], d2.geometry.coordinates[0]); if (routingControl) map.removeControl(routingControl); routingControl = L.Routing.control({ waypoints: [userLoc, dLoc, cLoc], routeWhileDragging: false, language: 'vi', showAlternatives: false, lineOptions: { styles: [{color: '#8a2be2', opacity: 0.8, weight: 6}] }, createMarker: (i, wp) => L.marker(wp.latLng, { icon: L.divIcon({ className: 'bg-dark text-white fw-bold p-1 rounded border border-white', html: `<span style="font-size: 0.7rem; white-space: nowrap;">${i===0?'📍 Bạn':(i===1?'🍲 Tăng 1':'☕ Tăng 2')}</span>`, iconSize: [60, 22], iconAnchor: [30, 11] }) }) }).addTo(map); map.fitBounds(L.latLngBounds([userLoc, dLoc, cLoc]), {padding: [80, 80]}); }); };
+
+        L.geoJSON(data, { onEachFeature: function (feature, layer) { var lat = feature.geometry.coordinates[1], lon = feature.geometry.coordinates[0], props = feature.properties; layer.bindPopup(`${props.image_url ? `<img src="${props.image_url}" style="width: 100%; height: 160px; object-fit: cover;">` : ''}<div class="popup-header">${props.name}</div><div class="popup-body"><p class="mb-2"><span class="badge bg-warning text-dark">${props.category}</span></p><div class="d-grid gap-2"><a href="/location/${props.pk}/" class="btn btn-info btn-sm text-white fw-bold">Chi tiết</a><button class="btn btn-success btn-sm fw-bold" onclick="startNavigation(${lat}, ${lon})">Dẫn đường</button></div></div>`, {className: 'custom-popup'}); } }).addTo(map);
     </script>
 {% endblock %}
