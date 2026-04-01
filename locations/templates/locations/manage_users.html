@@ -1,0 +1,40 @@
+{% extends 'locations/base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="glass-panel p-4 rounded-4 shadow">
+        <h2 class="fw-bold mb-4"><i class="fa-solid fa-users-gear text-primary"></i> Quản lý người dùng</h2>
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Ngày tham gia</th>
+                    <th>Trạng thái</th>
+                    <th class="text-end">Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td><strong>{{ u.username }}</strong></td>
+                    <td>{{ u.email }}</td>
+                    <td>{{ u.date_joined|date:"d/m/Y" }}</td>
+                    <td>
+                        {% if u.is_active %}
+                            <span class="badge bg-success">Hoạt động</span>
+                        {% else %}
+                            <span class="badge bg-danger">Đã khóa</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'toggle_user_status' u.id %}" class="btn btn-sm {% if u.is_active %}btn-outline-danger{% else %}btn-success{% endif %}">
+                            {% if u.is_active %}<i class="fa-solid fa-user-slash"></i> Khóa{% else %}<i class="fa-solid fa-user-check"></i> Mở khóa{% endif %}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

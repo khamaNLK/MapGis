@@ -2,7 +2,6 @@
 
 {% block extra_css %}
 <style>
-    /* Avatar chữ cái giống Google */
     .user-avatar {
         width: 40px; height: 40px;
         background-color: #f56a00; color: white;
@@ -11,13 +10,15 @@
         font-weight: bold; font-size: 18px;
         margin-right: 10px;
     }
-    .star-rating { color: #ffc107; } /* Màu vàng của sao */
+    .star-rating { color: #ffc107; }
     .review-img {
         max-width: 150px; height: 100px; object-fit: cover;
         border-radius: 8px; margin-top: 10px; cursor: pointer;
         border: 1px solid #ddd;
     }
     .review-img:hover { opacity: 0.8; }
+    /* Style cho ô chọn sao */
+    .select-rating { border: 2px solid #ffc107; font-weight: bold; color: #856404; background-color: #fff3cd; }
 </style>
 {% endblock %}
 
@@ -26,7 +27,6 @@
     <div class="row">
         <div class="col-md-4">
             <div class="card shadow-sm border-0">
-                
                 {% if location.image %}
                     <img src="{{ location.image.url }}" alt="{{ location.name }}" class="card-img-top" style="height: 200px; object-fit: cover;">
                 {% else %}
@@ -62,7 +62,7 @@
                                 </a>
                             </div>
                         {% endif %}
-                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -70,34 +70,42 @@
         <div class="col-md-8">
             <div class="card mb-4 shadow-sm">
                 <div class="card-body">
-                    <h5 class="fw-bold">Viết đánh giá của bạn</h5>
+                    <h5 class="fw-bold"><i class="fa-solid fa-pen-nib"></i> Viết đánh giá của bạn</h5>
                     {% if user.is_authenticated %}
                         <form method="post" enctype="multipart/form-data">
                             {% csrf_token %}
                             <div class="row mb-3">
-                                <div class="col-md-3">
-                                    <label class="form-label">Điểm số:</label>
-                                    {{ form.rating }}
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Số sao:</label>
+                                    <select name="rating" class="form-select select-rating" required>
+                                        <option value="" selected disabled>-- Chọn sao --</option>
+                                        <option value="5">⭐⭐⭐⭐⭐ (Rất tốt)</option>
+                                        <option value="4">⭐⭐⭐⭐ (Tốt)</option>
+                                        <option value="3">⭐⭐⭐ (Bình thường)</option>
+                                        <option value="2">⭐⭐ (Tệ)</option>
+                                        <option value="1">⭐ (Rất tệ)</option>
+                                    </select>
                                 </div>
-                                <div class="col-md-9">
-                                    <label class="form-label">Ảnh đính kèm (nếu có):</label>
+                                <div class="col-md-8">
+                                    <label class="form-label fw-bold">Ảnh đính kèm:</label>
                                     {{ form.image }}
                                 </div>
                             </div>
                             <div class="mb-3">
-                                {{ form.comment }}
+                                <label class="form-label fw-bold">Nội dung nhận xét:</label>
+                                <textarea name="comment" class="form-control" rows="3" placeholder="Bạn thấy địa điểm này thế nào?" required></textarea>
                             </div>
-                            <button type="submit" class="btn btn-primary px-4">Đăng bài</button>
+                            <button type="submit" class="btn btn-primary px-5 fw-bold rounded-pill">Đăng bài</button>
                         </form>
                     {% else %}
                         <div class="alert alert-warning">
-                            Bạn cần <a href="{% url 'login' %}" class="fw-bold">đăng nhập</a> để viết đánh giá và đăng ảnh.
+                            Bạn cần <a href="{% url 'login' %}" class="fw-bold">đăng nhập</a> để viết đánh giá.
                         </div>
                     {% endif %}
                 </div>
             </div>
 
-            <h4 class="mb-3">Bài đánh giá</h4>
+            <h4 class="mb-3">Bài đánh giá từ cộng đồng</h4>
             {% for review in reviews %}
                 <div class="card mb-3 border-0 border-bottom">
                     <div class="card-body">

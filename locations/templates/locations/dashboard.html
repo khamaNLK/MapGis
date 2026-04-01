@@ -1,0 +1,110 @@
+{% extends 'locations/base.html' %}
+
+{% block extra_css %}
+<style>
+    body { background-color: #f0f2f5; }
+    .dashboard-wrapper { max-width: 1300px; margin: 30px auto; padding: 0 15px; }
+    .dash-sidebar { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); height: fit-content; }
+    .nav-link-custom { display: flex; align-items: center; gap: 12px; padding: 12px 15px; color: #4b5563; text-decoration: none; border-radius: 10px; font-weight: 600; transition: 0.2s; margin-bottom: 5px; }
+    .nav-link-custom:hover { background: #f3f4f6; color: #0d6efd; }
+    .nav-link-custom.active { background: #e7f1ff; color: #0d6efd; }
+    .content-card { background: white; border-radius: 15px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .table img { width: 45px; height: 45px; border-radius: 8px; object-fit: cover; }
+    .badge-status { padding: 5px 12px; border-radius: 20px; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; }
+    .status-pending { background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5; }
+    .status-approved { background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}success{% endif %} alert-dismissible fade show fw-bold shadow-sm mb-4">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row g-4">
+        <div class="col-lg-3">
+            <div class="dash-sidebar">
+                <div class="text-center mb-4">
+                    <img src="https://ui-avatars.com/api/?name={{ user.username }}&background=0d6efd&color=fff" class="rounded-circle mb-2" width="60">
+                    <h6 class="fw-bold mb-0">Xin chào, {{ user.username }}</h6>
+                    <small class="text-muted">{% if user.is_superuser %}Quản trị viên{% else %}Thành viên{% endif %}</small>
+                </div>
+                <nav>
+                    <a href="{% url 'custom_dashboard' %}" class="nav-link-custom active"><i class="fa-solid fa-map-location-dot"></i> Quản lý địa điểm</a>
+                    <a href="{% url 'find_friends' %}" class="nav-link-custom"><i class="fa-solid fa-user-plus"></i> Tìm bạn bè</a>
+                    {% if user.is_superuser %}
+                        <hr>
+                        <a href="{% url 'manage_users' %}" class="nav-link-custom"><i class="fa-solid fa-users-gear"></i> Quản lý người dùng</a>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+
+        <div class="col-lg-9">
+            {% if pending_requests %}
+            <div class="alert alert-primary border-0 shadow-sm rounded-4 mb-4">
+                <h6 class="fw-bold"><i class="fa-solid fa-user-clock me-2"></i>Lời mời kết bạn đang chờ:</h6>
+                {% for req in pending_requests %}
+                <div class="d-flex align-items-center justify-content-between mt-2 p-2 bg-white rounded-3 shadow-sm">
+                    <span class="fw-bold">{{ req.from_user.username }}</span>
+                    <div>
+                        <a href="{% url 'accept_request' req.id %}" class="btn btn-sm btn-success rounded-pill px-3">Đồng ý</a>
+                        <a href="{% url 'reject_request' req.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-3">Xóa</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="content-card">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="fw-bold m-0 text-primary">Danh sách địa điểm</h4>
+                    <a href="{% url 'add_location' %}" class="btn btn-primary fw-bold rounded-pill px-4">Thêm mới</a>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border-top">
+                        <thead>
+                            <tr class="text-muted small text-uppercase">
+                                <th>Địa điểm</th>
+                                <th>Trạng thái</th>
+                                <th>Danh mục</th>
+                                <th class="text-end">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for loc in locations %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="fw-bold">{{ loc.name }}</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if loc.is_approved %}
+                                        <span class="badge-status status-approved">Đã duyệt</span>
+                                    {% else %}
+                                        <span class="badge-status status-pending">Chờ duyệt</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ loc.category.name }}</td>
+                                <td class="text-end">
+                                    <a href="{% url 'edit_location' loc.id %}" class="btn btn-sm btn-light border text-warning"><i class="fa-solid fa-pen"></i></a>
+                                    <a href="{% url 'delete_location' loc.id %}" class="btn btn-sm btn-light border text-danger" onclick="return confirm('Xóa?')"><i class="fa-solid fa-trash"></i></a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

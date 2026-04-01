@@ -1,113 +1,19 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.core.serializers import serialize
 import json
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.gis.geos import Point
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 from django.db.models import Avg
-from django.http import HttpResponseForbidden # Import để báo lỗi cấm truy cập
-from .models import Location, Review
-from .forms import LocationForm, ReviewForm
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .models import UserProfile
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib import messages
+from django.contrib.auth.models import User
+from .models import Location, Review, UserProfile, Category, FriendRequest
+from .forms import LocationForm, ReviewForm
 
-# --- HÀM KIỂM TRA QUYỀN (Helper) ---
-def check_permission(user, location):
-    # Cho phép nếu: User là Admin (staff) HOẶC User là người tạo ra địa điểm đó
-    if user.is_staff or location.creator == user:
-        return True
-    return False
-
-# 1. Hàm hiển thị bản đồ trang chủ
-def map_view(request):
-    locations = Location.objects.all()
-    
-    # Tạo GeoJSON thủ công để dễ dàng chèn URL ảnh vào properties
-    features = []
-    for loc in locations:
-        feature = {
-            "type": "Feature",
-            "geometry": json.loads(loc.geom.geojson),
-            "properties": {
-                "pk": loc.pk,
-                "name": loc.name,
-                "category": loc.category.name if loc.category else "Khác",
-                "description": loc.description,
-                "address": loc.address,
-                # Lấy URL ảnh nếu có (để hiển thị trên popup)
-                "image_url": loc.image.url if loc.image else None 
-            }
-        }
-        features.append(feature)
-    
-    geojson_data = {
-        "type": "FeatureCollection",
-        "features": features
-    }
-
-    locations_json = json.dumps(geojson_data)
-    
-    return render(request, 'locations/index.html', {
-        'locations_json': locations_json
-    })
-
-# 2. Hàm xem chi tiết và đánh giá địa điểm
-def location_detail(request, pk):
-    location = get_object_or_404(Location, pk=pk)
-    reviews = location.reviews.all().order_by('-created_at')
-    
-    avg_rating = reviews.aggregate(Avg('rating'))['rating__avg']
-    avg_rating = round(avg_rating, 1) if avg_rating else 0
-
-    if request.method == 'POST':
-        if not request.user.is_authenticated:
-            return redirect('login')
-            
-        form = ReviewForm(request.POST, request.FILES)
-        if form.is_valid():
-            review = form.save(commit=False)
-            review.location = location
-            review.user = request.user
-            review.save()
-            return redirect('location_detail', pk=pk)
-    else:
-        form = ReviewForm()
-
-    return render(request, 'locations/location_detail.html', {
-        'location': location,
-        'reviews': reviews,
-        'avg_rating': avg_rating,
-        'form': form
-    })
-
-# 3. Hàm thêm địa điểm
-@login_required
-def add_location(request):
-    if request.method == 'POST':
-        form = LocationForm(request.POST, request.FILES)
-        if form.is_valid():
-            new_location = form.save(commit=False)
-            try:
-                lat = form.cleaned_data['lat']
-                lon = form.cleaned_data['lon']
-                new_location.geom = Point(lon, lat, srid=4326)
-            except (ValueError, TypeError):
-                return render(request, 'locations/add_location.html', {
-                    'form': form,
-                    'error': 'Vui lòng chọn vị trí trên bản đồ!'
-                })
-            
-            new_location.creator = request.user
-            new_location.save()
-            return redirect('map_home')
-    else:
-        form = LocationForm()
-
-    return render(request, 'locations/add_location.html', {'form': form})
-
-# 4. Hàm Đăng ký tài khoản
+# 1. TÀI KHOẢN (Signup)
 def signup(request):
     if request.method == 'POST':
         form = UserCreationForm(request.POST)
@@ -117,120 +23,169 @@ def signup(request):
             return redirect('map_home')
     else:
         form = UserCreationForm()
-    
     return render(request, 'registration/signup.html', {'form': form})
 
-# 5. Hàm Sửa địa điểm (MỚI - Có bảo mật)
-@login_required
-def edit_location(request, pk):
-    location = get_object_or_404(Location, pk=pk)
-    
-    # KIỂM TRA QUYỀN
-    if not check_permission(request.user, location):
-        return HttpResponseForbidden("Bạn không có quyền sửa địa điểm này!")
-
-    if request.method == 'POST':
-        # instance=location để cập nhật bản ghi cũ thay vì tạo mới
-        form = LocationForm(request.POST, request.FILES, instance=location)
-        if form.is_valid():
-            loc = form.save(commit=False)
-            
-            # Cập nhật tọa độ nếu người dùng chọn lại trên bản đồ
-            try:
-                lat = form.cleaned_data['lat']
-                lon = form.cleaned_data['lon']
-                if lat and lon: 
-                    loc.geom = Point(lon, lat, srid=4326)
-            except:
-                pass # Giữ nguyên tọa độ cũ nếu không đổi
-                
-            loc.save()
-            return redirect('location_detail', pk=pk)
-    else:
-        # Đổ dữ liệu cũ vào form, bao gồm cả tọa độ để hiện marker
-        form = LocationForm(instance=location, initial={
-            'lat': location.geom.y,
-            'lon': location.geom.x
+# 2. TRANG CHỦ & CHI TIẾT
+def map_view(request):
+    locations = Location.objects.filter(is_approved=True) 
+    features = []
+    for loc in locations:
+        features.append({
+            "type": "Feature", "geometry": json.loads(loc.geom.geojson),
+            "properties": {
+                "pk": loc.pk, "name": loc.name, "category": loc.category.name if loc.category else "Khác",
+                "address": loc.address, "image_url": loc.image.url if loc.image else None 
+            }
         })
+    return render(request, 'locations/index.html', {'locations_json': json.dumps({"type": "FeatureCollection", "features": features})})
 
-    return render(request, 'locations/add_location.html', {
-        'form': form, 
-        'is_edit': True # Báo hiệu cho template biết đây là chế độ Sửa
+def location_detail(request, pk):
+    location = get_object_or_404(Location, pk=pk)
+    if request.method == 'POST' and request.user.is_authenticated:
+        Review.objects.create(
+            location=location, user=request.user, 
+            rating=int(request.POST.get('rating')), 
+            comment=request.POST.get('comment'), 
+            image=request.FILES.get('image')
+        )
+        messages.success(request, "✅ Cảm ơn bạn đã đánh giá!")
+        return redirect('location_detail', pk=pk)
+    return render(request, 'locations/location_detail.html', {
+        'location': location, 'reviews': location.reviews.all().order_by('-created_at'),
+        'avg_rating': round(location.reviews.aggregate(Avg('rating'))['rating__avg'] or 0, 1),
+        'form': ReviewForm()
     })
 
-# 6. Hàm Xóa địa điểm (MỚI - Có bảo mật)
+# 3. DASHBOARD & KẾT BẠN (ĐỒNG Ý)
 @login_required
-def delete_location(request, pk):
-    location = get_object_or_404(Location, pk=pk)
-    
-    # KIỂM TRA QUYỀN
-    if not check_permission(request.user, location):
-        return HttpResponseForbidden("Bạn không có quyền xóa địa điểm này!")
-    
-    if request.method == 'POST':
-        location.delete()
-        return redirect('map_home')
-        
-    return render(request, 'locations/confirm_delete.html', {'location': location})
-@csrf_exempt # Tạm thời tắt check CSRF để API nhận dữ liệu dễ dàng hơn
+def custom_dashboard(request):
+    locations = Location.objects.all() if request.user.is_superuser else Location.objects.filter(creator=request.user)
+    cat_name = request.GET.get('category')
+    if cat_name: locations = locations.filter(category__name=cat_name)
+    pending_requests = FriendRequest.objects.filter(to_user=request.user, is_active=True)
+    return render(request, 'locations/dashboard.html', {
+        'locations': locations.order_by('-id'), 'categories': Category.objects.all(),
+        'current_category': cat_name, 'pending_requests': pending_requests
+    })
+
+@login_required
+def find_friends(request):
+    query = request.GET.get('q')
+    results = User.objects.filter(username__icontains=query).exclude(id=request.user.id) if query else []
+    return render(request, 'locations/find_friends.html', {'results': results})
+
+@login_required
+def send_friend_request(request, user_id):
+    to_user = get_object_or_404(User, id=user_id)
+    if not FriendRequest.objects.filter(from_user=request.user, to_user=to_user, is_active=True).exists():
+        FriendRequest.objects.create(from_user=request.user, to_user=to_user)
+        messages.success(request, f"Đã gửi lời mời tới {to_user.username}")
+    return redirect('find_friends')
+
+@login_required
+def accept_friend_request(request, request_id):
+    fr = get_object_or_404(FriendRequest, id=request_id, to_user=request.user)
+    my_p, _ = UserProfile.objects.get_or_create(user=request.user)
+    sender_p, _ = UserProfile.objects.get_or_create(user=fr.from_user)
+    my_p.friends.add(sender_p)
+    fr.delete()
+    messages.success(request, f"Bạn và {fr.from_user.username} đã là bạn bè!")
+    return redirect('custom_dashboard')
+
+@login_required
+def reject_friend_request(request, request_id):
+    get_object_or_404(FriendRequest, id=request_id, to_user=request.user).delete()
+    return redirect('custom_dashboard')
+
+# 4. QUẢN LÝ NGƯỜI DÙNG & GIS API
+@staff_member_required
+def manage_users(request):
+    return render(request, 'locations/manage_users.html', {'users': User.objects.all().order_by('-date_joined')})
+
+@staff_member_required
+def toggle_user_status(request, user_id):
+    u = get_object_or_404(User, id=user_id)
+    if not u.is_superuser:
+        u.is_active = not u.is_active
+        u.save()
+    return redirect('manage_users')
+
+@csrf_exempt
 def update_location(request):
     if request.method == 'POST' and request.user.is_authenticated:
-        try:
-            data = json.loads(request.body)
-            # Tìm profile của user này, nếu chưa có thì tự động tạo mới
-            profile, created = UserProfile.objects.get_or_create(user=request.user)
-            
-            # Cập nhật tọa độ và pin
-            profile.last_lat = data.get('lat')
-            profile.last_lon = data.get('lng')
-            if 'battery' in data:
-                profile.battery_level = data.get('battery')
-                
-            profile.save()
-            return JsonResponse({'status': 'success'})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
-            
-    return JsonResponse({'status': 'fail', 'message': 'Chưa đăng nhập hoặc sai method'})
-@login_required
-def get_friends_data(request):
-    try:
-        # Lấy profile của người dùng hiện tại
-        profile = UserProfile.objects.get(user=request.user)
-        # Lấy danh sách những người bạn
-        friends = profile.friends.all()
-        
-        friends_data = []
-        for f in friends:
-            # Bỏ qua những người bạn chưa từng bật GPS (chưa có tọa độ)
-            if f.last_lat is not None and f.last_lon is not None:
-                # Tự động tạo màu ngẫu nhiên cho avatar từng người
-                avatar_url = f"https://ui-avatars.com/api/?name={f.user.username}&background=random&color=fff"
-                
-                friends_data.append({
-                    'id': f.user.id,
-                    'name': f.user.username,
-                    'lat': f.last_lat,
-                    'lng': f.last_lon,
-                    'battery': f.battery_level,
-                    'status': f.status_message or "",
-                    'avatar': avatar_url
-                })
-                
-        return JsonResponse({'status': 'success', 'friends': friends_data})
-    except UserProfile.DoesNotExist:
-        return JsonResponse({'status': 'success', 'friends': []})
+        data = json.loads(request.body)
+        p, _ = UserProfile.objects.get_or_create(user=request.user)
+        p.last_lat, p.last_lon = data.get('lat'), data.get('lng')
+        p.save()
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'fail'})
+
 @csrf_exempt
 def update_status(request):
     if request.method == 'POST' and request.user.is_authenticated:
-        try:
-            data = json.loads(request.body)
-            # Lấy profile và cập nhật dòng trạng thái mới
-            profile, created = UserProfile.objects.get_or_create(user=request.user)
-            profile.status_message = data.get('status', '')
-            profile.save()
-            return JsonResponse({'status': 'success'})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)})
-            
-    return JsonResponse({'status': 'fail', 'message': 'Chưa đăng nhập'})
+        data = json.loads(request.body)
+        p, _ = UserProfile.objects.get_or_create(user=request.user)
+        p.status_message = data.get('status', '')
+        p.save()
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'fail'})
+
+def get_friends_data(request):
+    if not request.user.is_authenticated: return JsonResponse({'friends': []})
+    p, _ = UserProfile.objects.get_or_create(user=request.user)
+    data = [{'id': f.user.id, 'name': f.user.username, 'lat': f.last_lat, 'lng': f.last_lon, 'battery': f.battery_level, 'status': f.status_message, 'avatar': f"https://ui-avatars.com/api/?name={f.user.username}"} for f in p.friends.all() if f.last_lat]
+    return JsonResponse({'status': 'success', 'friends': data})
+
+@login_required
+def add_location_dashboard(request):
+    if request.method == 'POST':
+        data = request.POST.copy()
+        cat_name = request.POST.get('category_name')
+        if cat_name:
+            category_obj, _ = Category.objects.get_or_create(name=cat_name)
+            data['category'] = category_obj.pk
+        form = LocationForm(data, request.FILES)
+        if form.is_valid():
+            loc = form.save(commit=False)
+            lat, lon = request.POST.get('lat'), request.POST.get('lon')
+            if lat and lon: loc.geom = Point(float(lon), float(lat), srid=4326)
+            loc.creator = request.user
+            loc.is_approved = request.user.is_superuser
+            loc.save()
+            return redirect('custom_dashboard')
+    return render(request, 'locations/add_location.html', {'form': LocationForm(), 'is_edit': False})
+
+@login_required
+def edit_location(request, pk):
+    location = get_object_or_404(Location, pk=pk)
+    if not (request.user.is_superuser or location.creator == request.user):
+        return HttpResponseForbidden()
+    if request.method == 'POST':
+        data = request.POST.copy()
+        cat_name = request.POST.get('category_name')
+        if cat_name:
+            category_obj, _ = Category.objects.get_or_create(name=cat_name)
+            data['category'] = category_obj.pk
+        form = LocationForm(data, request.FILES, instance=location)
+        if form.is_valid():
+            loc = form.save(commit=False)
+            lat, lon = request.POST.get('lat'), request.POST.get('lon')
+            if lat and lon: loc.geom = Point(float(lon), float(lat), srid=4326)
+            loc.save()
+            return redirect('custom_dashboard')
+    form = LocationForm(instance=location)
+    return render(request, 'locations/add_location.html', {'form': form, 'is_edit': True, 'location': location})
+
+@login_required
+def delete_location_dashboard(request, pk):
+    loc = get_object_or_404(Location, pk=pk)
+    if request.user.is_superuser or loc.creator == request.user:
+        loc.delete()
+    return redirect('custom_dashboard')
+
+@staff_member_required
+def approve_location(request, pk):
+    loc = get_object_or_404(Location, pk=pk)
+    loc.is_approved = True
+    loc.save()
+    return redirect('custom_dashboard')
