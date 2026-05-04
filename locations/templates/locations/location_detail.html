@@ -2,145 +2,159 @@
 
 {% block extra_css %}
 <style>
-    .user-avatar {
-        width: 40px; height: 40px;
-        background-color: #f56a00; color: white;
-        border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-weight: bold; font-size: 18px;
-        margin-right: 10px;
-    }
-    .star-rating { color: #ffc107; }
-    .review-img {
-        max-width: 150px; height: 100px; object-fit: cover;
-        border-radius: 8px; margin-top: 10px; cursor: pointer;
-        border: 1px solid #ddd;
-    }
-    .review-img:hover { opacity: 0.8; }
-    /* Style cho ô chọn sao */
-    .select-rating { border: 2px solid #ffc107; font-weight: bold; color: #856404; background-color: #fff3cd; }
+    .detail-card { background: rgba(255,255,255,0.9); border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); overflow: hidden; margin-bottom: 25px; }
+    .main-carousel img { height: 450px; object-fit: cover; width: 100%; cursor: pointer; }
+    .thumb-container { display: flex; gap: 10px; padding: 15px; overflow-x: auto; background: #f8f9fa; }
+    .thumb-item { width: 80px; height: 60px; object-fit: cover; border-radius: 10px; cursor: pointer; opacity: .6; border: 2px solid transparent; transition: 0.3s; flex-shrink: 0; }
+    .thumb-item.active { opacity: 1; border-color: #0d6efd; transform: scale(1.05); }
+    .badge-category { background: #e7f1ff; color: #0d6efd; font-weight: 700; border-radius: 10px; padding: 8px 15px; display: inline-block; }
+    .description-content { line-height: 1.7; color: #334155; }
+    .description-content img { max-width: 100%; border-radius: 15px; }
+    .user-avatar-circle { width: 45px; height: 45px; border-radius: 50%; background: #0d6efd; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0">
-                {% if location.image %}
-                    <img src="{{ location.image.url }}" alt="{{ location.name }}" class="card-img-top" style="height: 200px; object-fit: cover;">
-                {% else %}
-                    <div style="height: 200px; background: #eee; display: flex; align-items: center; justify-content: center; color: #aaa;">
-                        <i class="fa-solid fa-image fa-3x"></i>
-                    </div>
-                {% endif %}
-                
-                <div class="card-body">
-                    <h2 class="fw-bold">{{ location.name }}</h2>
-                    <p class="text-warning fs-4 mb-1">
-                        {{ avg_rating }} <i class="fa-solid fa-star"></i> 
-                        <span class="text-muted fs-6">({{ reviews.count }} đánh giá)</span>
-                    </p>
-                    <p class="text-muted">{{ location.category }}</p>
-                    <hr>
-                    <p><i class="fa-solid fa-location-dot text-primary"></i> {{ location.address }}</p>
-                    <p class="fst-italic">"{{ location.description }}"</p>
-                    
-                    <div class="d-grid gap-2">
-                        <a href="{% url 'map_home' %}" class="btn btn-outline-primary">
-                            <i class="fa-solid fa-arrow-left"></i> Quay lại bản đồ
-                        </a>
-
-                        {% if user.is_authenticated and user.is_staff or user == location.creator %}
-                            <hr class="my-2">
-                            <div class="d-flex gap-2">
-                                <a href="{% url 'edit_location' location.pk %}" class="btn btn-warning flex-fill fw-bold text-dark">
-                                    <i class="fa-solid fa-pen"></i> Sửa
-                                </a>
-                                <a href="{% url 'delete_location' location.pk %}" class="btn btn-danger flex-fill fw-bold">
-                                    <i class="fa-solid fa-trash"></i> Xóa
-                                </a>
-                            </div>
+<div class="container mt-5 mb-5">
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="detail-card shadow-lg">
+                <div id="locationGallery" class="carousel slide" data-bs-ride="false">
+                    <div class="carousel-inner main-carousel">
+                        {% if location.image %}
+                        <div class="carousel-item active">
+                            <img src="{{ location.image.url }}" data-bs-toggle="modal" data-bs-target="#imageModal" onclick="setModalImage(this.src)">
+                        </div>
                         {% endif %}
+                        {% for item in location.images.all %}
+                        <div class="carousel-item {% if not location.image and forloop.first %}active{% endif %}">
+                            <img src="{{ item.image.url }}" data-bs-toggle="modal" data-bs-target="#imageModal" onclick="setModalImage(this.src)">
+                        </div>
+                        {% endfor %}
                     </div>
+                    {% if location.images.exists or location.image %}
+                    <button class="carousel-control-prev" type="button" data-bs-target="#locationGallery" data-bs-slide="prev"><span class="carousel-control-prev-icon"></span></button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#locationGallery" data-bs-slide="next"><span class="carousel-control-next-icon"></span></button>
+                    {% endif %}
+                </div>
+                <div class="thumb-container">
+                    {% if location.image %}
+                    <img src="{{ location.image.url }}" class="thumb-item active" onclick="jumpToSlide(0)">
+                    {% endif %}
+                    {% for item in location.images.all %}
+                        <img src="{{ item.image.url }}" class="thumb-item" onclick="jumpToSlide({% if location.image %}{{ forloop.counter }}{% else %}{{ forloop.counter0 }}{% endif %})">
+                    {% endfor %}
                 </div>
             </div>
         </div>
 
-        <div class="col-md-8">
-            <div class="card mb-4 shadow-sm">
-                <div class="card-body">
-                    <h5 class="fw-bold"><i class="fa-solid fa-pen-nib"></i> Viết đánh giá của bạn</h5>
-                    {% if user.is_authenticated %}
-                        <form method="post" enctype="multipart/form-data">
-                            {% csrf_token %}
-                            <div class="row mb-3">
-                                <div class="col-md-4">
-                                    <label class="form-label fw-bold">Số sao:</label>
-                                    <select name="rating" class="form-select select-rating" required>
-                                        <option value="" selected disabled>-- Chọn sao --</option>
-                                        <option value="5">⭐⭐⭐⭐⭐ (Rất tốt)</option>
-                                        <option value="4">⭐⭐⭐⭐ (Tốt)</option>
-                                        <option value="3">⭐⭐⭐ (Bình thường)</option>
-                                        <option value="2">⭐⭐ (Tệ)</option>
-                                        <option value="1">⭐ (Rất tệ)</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-8">
-                                    <label class="form-label fw-bold">Ảnh đính kèm:</label>
-                                    {{ form.image }}
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Nội dung nhận xét:</label>
-                                <textarea name="comment" class="form-control" rows="3" placeholder="Bạn thấy địa điểm này thế nào?" required></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-primary px-5 fw-bold rounded-pill">Đăng bài</button>
-                        </form>
-                    {% else %}
-                        <div class="alert alert-warning">
-                            Bạn cần <a href="{% url 'login' %}" class="fw-bold">đăng nhập</a> để viết đánh giá.
-                        </div>
-                    {% endif %}
+        <div class="col-lg-5">
+            <div class="detail-card p-4 shadow-lg h-100 d-flex flex-column">
+                <span class="badge-category">{{ location.category.name }}</span>
+                <h1 class="fw-bold mt-2 text-dark">{{ location.name }}</h1>
+                <p class="text-muted small"><i class="fa-solid fa-location-dot text-danger me-2"></i>{{ location.address }}</p>
+                
+                <div class="alert alert-success border-0 rounded-4 p-3 mb-4">
+                    <i class="fa-regular fa-clock me-2"></i> <b>Giờ hoạt động:</b><br>
+                    {% if location.open_time %}{{ location.open_time|time:"H:i" }} — {{ location.close_time|time:"H:i" }}{% else %}Chưa cập nhật{% endif %}
+                </div>
+                
+                <a href="{% url 'map_home' %}?lat={{ location.geom.y }}&lng={{ location.geom.x }}&name={{ location.name|urlencode }}" 
+                   class="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow mb-4">
+                    <i class="fa-solid fa-route me-2"></i> XEM ĐƯỜNG ĐI TRÊN BẢN ĐỒ
+                </a>
+
+                <h5 class="fw-bold border-bottom pb-2 mb-3">Mô tả chi tiết</h5>
+                <div class="description-content flex-grow-1 overflow-auto" style="max-height: 300px;">
+                    {% if location.description %}{{ location.description|safe }}{% else %}<p class="text-muted italic">Chưa có mô tả.</p>{% endif %}
+                </div>
+                
+                <div class="mt-4">
+                    <a href="{% url 'map_home' %}" class="btn btn-outline-dark w-100 rounded-pill py-2">Quay lại bản đồ</a>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <h4 class="mb-3">Bài đánh giá từ cộng đồng</h4>
-            {% for review in reviews %}
-                <div class="card mb-3 border-0 border-bottom">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center mb-2">
-                            <div class="user-avatar">
-                                {{ review.user.username|slice:":1"|upper }}
+    <div class="row mt-4">
+        <div class="col-lg-12">
+            <div class="detail-card p-4 shadow-lg">
+                <h4 class="fw-bold mb-4">⭐ Đánh giá cộng đồng ({{ avg_rating }}/5)</h4>
+
+                {% if user.is_authenticated %}
+                    {% if not user_has_reviewed %}
+                        <form action="{% url 'add_review' location.pk %}" method="POST" enctype="multipart/form-data" class="mb-5 p-4 border rounded-4 bg-light shadow-sm">
+                            {% csrf_token %}
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="fw-bold mb-2 small">Chọn số sao:</label>
+                                    <select name="rating" class="form-select border-primary shadow-none" required>
+                                        <option value="5">⭐⭐⭐⭐⭐ 5</option>
+                                        <option value="4">⭐⭐⭐⭐ 4</option>
+                                        <option value="3" selected>⭐⭐⭐ 3</option>
+                                        <option value="2">⭐⭐ 2</option>
+                                        <option value="1">⭐ 1</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-9">
+                                    <label class="fw-bold mb-2 small">Nhận xét của bạn:</label>
+                                    <textarea name="comment" class="form-control shadow-none" rows="3" placeholder="Chia sẻ cảm nhận của bạn..." required></textarea>
+                                </div>
+                                <div class="col-12 text-end">
+                                    <label class="small me-2 text-muted">Đính kèm ảnh:</label>
+                                    <input type="file" name="image" class="form-control form-control-sm d-inline-block w-auto me-2" accept="image/*">
+                                    <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold">Gửi đánh giá</button>
+                                </div>
                             </div>
-                            <div>
-                                <h6 class="mb-0 fw-bold">{{ review.user.username }}</h6>
-                                <small class="text-muted">{{ review.created_at|date:"d/m/Y" }}</small>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-info border-0 rounded-4 mb-5">
+                            <i class="fa-solid fa-check-circle me-2"></i> Bạn đã đánh giá địa điểm này. Cảm ơn sự đóng góp của bạn!
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <p class="mb-5 text-center text-muted">Vui lòng <a href="{% url 'login' %}">Đăng nhập</a> để đánh giá.</p>
+                {% endif %}
+
+                <div class="review-list">
+                    {% for r in reviews %}
+                        <div class="review-item p-3 border-bottom mb-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="user-avatar-circle me-3">{{ r.user.username|slice:":1"|upper }}</div>
+                                <div>
+                                    <h6 class="fw-bold m-0 text-primary">{{ r.user.username }}</h6>
+                                    <div class="text-warning small">
+                                        {% for i in "12345"|make_list %}{% if forloop.counter <= r.rating %}★{% else %}☆{% endif %}{% endfor %}
+                                        <small class="text-muted ms-2">{{ r.created_at|date:"d/m/Y" }}</small>
+                                    </div>
+                                </div>
                             </div>
+                            <p class="text-dark small mb-2">{{ r.comment }}</p>
+                            {% if r.image %}<img src="{{ r.image.url }}" class="rounded-3 shadow-sm" style="max-width: 120px; cursor:pointer" onclick="setModalImage(this.src)" data-bs-toggle="modal" data-bs-target="#imageModal">{% endif %}
                         </div>
-
-                        <div class="star-rating mb-2">
-                            {% for i in "12345"|make_list %}
-                                <i class="fa-solid fa-star {% if forloop.counter > review.rating %}text-muted{% endif %}"></i>
-                            {% endfor %}
-                        </div>
-
-                        <p class="card-text">{{ review.comment }}</p>
-
-                        {% if review.image %}
-                            <a href="{{ review.image.url }}" target="_blank">
-                                <img src="{{ review.image.url }}" class="review-img" alt="Review Image">
-                            </a>
-                        {% endif %}
-                    </div>
+                    {% empty %}
+                        <p class="text-center text-muted py-5 italic">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
+                    {% endfor %}
                 </div>
-            {% empty %}
-                <div class="text-center py-5 text-muted">
-                    <i class="fa-regular fa-comment-dots fa-3x mb-3"></i>
-                    <p>Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
-                </div>
-            {% endfor %}
+            </div>
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-transparent border-0 text-center">
+            <img id="modalImage" src="" class="img-fluid rounded-4 shadow-lg">
+        </div>
+    </div>
+</div>
+
+<script>
+    function jumpToSlide(index){ bootstrap.Carousel.getOrCreateInstance('#locationGallery').to(index); }
+    function setModalImage(src){ document.getElementById('modalImage').src = src; }
+    document.getElementById('locationGallery').addEventListener('slid.bs.carousel', function (e) {
+        let thumbs = document.querySelectorAll('.thumb-item');
+        thumbs.forEach((el, i) => el.classList.toggle('active', i === e.to));
+    });
+</script>
 {% endblock %}

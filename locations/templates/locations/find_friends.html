@@ -1,70 +1,53 @@
 {% extends 'locations/base.html' %}
-
-{% block extra_css %}
-<style>
-    body { background-color: #f0f2f5; }
-    .search-card { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-    .user-result-item { 
-        display: flex; align-items: center; justify-content: space-between; 
-        padding: 15px; border-radius: 15px; background: #f8f9fa; 
-        margin-bottom: 10px; transition: 0.2s;
-    }
-    .user-result-item:hover { background: #eef2ff; transform: translateY(-2px); }
-    .avatar-circle { width: 50px; height: 50px; border-radius: 50%; background: #0d6efd; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; }
-</style>
-{% endblock %}
-
 {% block content %}
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <div class="search-card">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2 class="fw-bold m-0"><i class="fa-solid fa-user-plus text-primary"></i> Tìm bạn mới</h2>
-                    <a href="{% url 'custom_dashboard' %}" class="btn btn-outline-secondary rounded-pill fw-bold">
-                        <i class="fa-solid fa-arrow-left"></i> Quay lại
-                    </a>
-                </div>
-
-                <form method="GET" class="mb-5">
-                    <div class="input-group">
-                        <input type="text" name="q" class="form-control rounded-start-pill px-4" placeholder="Nhập tên người dùng..." value="{{ request.GET.q }}">
-                        <button class="btn btn-primary rounded-end-pill px-4" type="submit">
-                            <i class="fa-solid fa-magnifying-glass"></i> Tìm kiếm
-                        </button>
-                    </div>
+            <div class="card shadow-lg border-0 rounded-4 p-4">
+                <h3 class="fw-bold mb-4 text-primary"><i class="fa-solid fa-user-plus"></i> Tìm bạn mới</h3>
+                
+                <!-- QUAN TRỌNG: action phải trỏ về url find_friends và method="GET" -->
+                <form method="GET" action="{% url 'find_friends' %}" class="input-group mb-5 shadow-sm">
+                    <input type="text" name="q" class="form-control border-0 py-3 ps-4" 
+                           placeholder="Nhập ID (VD: 11) hoặc tên người dùng..." value="{{ query }}">
+                    <button class="btn btn-primary px-4 fw-bold" type="submit">Tìm kiếm</button>
                 </form>
 
-                <div class="results-list">
-                    {% if results %}
-                        <h6 class="text-muted mb-3">Kết quả tìm thấy ({{ results|length }})</h6>
-                        {% for u in results %}
-                            <div class="user-result-item border shadow-sm">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="avatar-circle">
-                                        {{ u.username|slice:":1"|upper }}
-                                    </div>
-                                    <div>
-                                        <div class="fw-bold text-dark">{{ u.username }}</div>
-                                        <small class="text-muted">Tham gia từ: {{ u.date_joined|date:"d/m/Y" }}</small>
-                                    </div>
+                <h5 class="fw-bold mb-3 border-bottom pb-2">Kết quả tìm kiếm</h5>
+                <div class="list-group">
+                    {% for person in results %}
+                        <div class="list-group-item d-flex align-items-center justify-content-between py-3 border-0 bg-light rounded-3 mb-2 shadow-sm">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-dark text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width:45px; height:45px; font-weight:bold;">
+                                    {{ person.username|slice:":1"|upper }}
                                 </div>
-                                <a href="{% url 'send_friend_request' u.id %}" class="btn btn-success btn-sm rounded-pill px-3 fw-bold">
-    <i class="fa-solid fa-user-plus"></i> Kết bạn
-</a>
+                                <div>
+                                    <strong class="d-block">{{ person.username }}</strong>
+                                    <small class="text-muted">ID: {{ person.id }} | Tham gia: {{ person.date_joined|date:"d/m/Y" }}</small>
+                                </div>
                             </div>
-                        {% endfor %}
-                    {% elif request.GET.q %}
-                        <div class="text-center py-5">
-                            <img src="https://cdn-icons-png.flaticon.com/512/7486/7486744.png" width="80" class="mb-3 opacity-50">
-                            <p class="text-muted fw-bold">Không tìm thấy người dùng nào có tên "{{ request.GET.q }}"</p>
+                            
+                            <div class="actions">
+                                {% if person.id in friend_ids %}
+                                    <span class="badge bg-success rounded-pill px-3 py-2">Bạn bè</span>
+                                {% elif person.id in sent_requests_ids %}
+                                    <button class="btn btn-sm btn-secondary disabled rounded-pill px-3">Đã gửi lời mời</button>
+                                {% else %}
+                                    <a href="{% url 'send_friend_request' person.id %}" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold">
+                                        + Kết bạn
+                                    </a>
+                                {% endif %}
+                            </div>
                         </div>
-                    {% else %}
-                        <div class="text-center py-5 text-muted">
-                            <i class="fa-solid fa-users fa-3x mb-3"></i>
-                            <p>Hãy nhập tên để tìm kiếm những người bạn quanh đây!</p>
-                        </div>
-                    {% endif %}
+                    {% empty %}
+                        {% if query %}
+                            <div class="text-center py-5">
+                                <p class="text-muted">Không tìm thấy người dùng nào có tên hoặc ID là "{{ query }}"</p>
+                            </div>
+                        {% else %}
+                            <p class="text-center text-muted py-4">Nhập ID hoặc tên để bắt đầu tìm bạn.</p>
+                        {% endif %}
+                    {% endfor %}
                 </div>
             </div>
         </div>

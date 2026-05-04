@@ -1,0 +1,39 @@
+{% extends 'locations/base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow border-0 rounded-4 p-4">
+        <h3 class="fw-bold mb-4">Tìm người dùng</h3>
+        
+        <form method="GET" action="{% url 'search_friends' %}" class="input-group mb-5">
+            <!-- QUAN TRỌNG: name phải là 'q' -->
+            <input type="text" name="q" class="form-control px-4" 
+                   placeholder="Nhập ID (VD: 11) hoặc tên người dùng..." value="{{ query }}">
+            <button class="btn btn-primary px-4" type="submit">Tìm kiếm</button>
+        </form>
+
+        <div class="results-list">
+            {% for u in results %}
+                <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded-3 mb-2 shadow-sm">
+                    <div>
+                        <strong class="d-block text-dark">{{ u.username }} (ID: {{ u.id }})</strong>
+                        <small class="text-muted">Tham gia: {{ u.date_joined|date:"d/m/Y" }}</small>
+                    </div>
+                    <div>
+                        {% if u.id in friend_ids %}
+                            <span class="badge bg-success rounded-pill px-3">Bạn bè</span>
+                        {% elif u.id in sent_requests_ids %}
+                            <span class="badge bg-secondary rounded-pill px-3">Đã gửi lời mời</span>
+                        {% else %}
+                            <a href="{% url 'send_friend_request' u.id %}" class="btn btn-sm btn-primary rounded-pill px-3">+ Kết bạn</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% empty %}
+                {% if query %}
+                    <p class="text-center text-muted py-4">Không tìm thấy tài khoản nào khớp với "{{ query }}"</p>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

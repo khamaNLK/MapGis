@@ -1,0 +1,36 @@
+{% extends 'locations/base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-4 text-center">
+            <div class="card shadow-lg border-0 rounded-4">
+                <div class="card-body p-5">
+                    <div class="mb-4">
+                        <i class="fa-solid fa-envelope-circle-check fa-4x text-success"></i>
+                    </div>
+                    <h4 class="fw-bold">Xác nhận mã OTP</h4>
+                    <p class="text-muted small">Chúng tôi đã gửi mã xác thực 6 số vào email của bạn.</p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-4">
+                            <input type="text" name="otp" 
+                                   class="form-control form-control-lg text-center fw-bold border-2" 
+                                   placeholder="000000" maxlength="6" autofocus required
+                                   style="letter-spacing: 8px; font-size: 2rem; border-radius: 12px; color: #0d6efd;">
+                        </div>
+                        <button type="submit" class="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-lg">
+                            XÁC MINH TÀI KHOẢN
+                        </button>
+                    </form>
+                    
+                    <div class="mt-4">
+                        <p class="small text-muted">Không nhận được mã? <br>
+                        <a href="{% url 'signup' %}" class="text-decoration-none fw-bold">Đăng ký lại</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,550 +1,219 @@
 {% extends 'locations/base.html' %}
-
 {% block extra_css %}
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
-    <style>
-        /* --- STYLE CHO DROPDOWN TÌM KHÁC --- */
-        .dropdown-quick { position: relative; display: inline-block; }
-        .dropdown-content {
-            display: none; position: absolute; top: 110%; left: 0;
-            background: rgba(255, 255, 255, 0.95); min-width: 160px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15); border-radius: 15px;
-            z-index: 10000; overflow: hidden; backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.5);
-        }
-        .dropdown-content button {
-            width: 100%; border: none; background: none; padding: 10px 15px;
-            text-align: left; font-size: 0.85rem; font-weight: 600; color: #333;
-            transition: 0.2s; cursor: pointer;
-        }
-        .dropdown-content button:hover { background: #0d6efd; color: white; }
-        .dropdown-quick:hover .dropdown-content { display: block; animation: fadeIn 0.2s ease-out; }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        #map { height: calc(100vh - 56px); width: 100%; z-index: 1; background: #1a1a1a; }
-
-        /* --- UI GLASSMORPHISM --- */
-        .glass-panel { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15); }
-        .quick-search-bar { position: absolute; top: 75px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 8px 12px; border-radius: 50px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; width: max-content; max-width: 95%; }
-        .btn-quick { border: none; background: rgba(255,255,255,0.9); padding: 8px 15px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; color: #333; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .btn-quick:hover { transform: scale(1.05); background: #fff; color: #0d6efd; }
-        .btn-quick.active-tool { background: #fd7e14; color: white; }
-
-        /* --- THÔNG BÁO NỔI TOAST --- */
-        .custom-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-20px); background: rgba(0, 0, 0, 0.85); color: white; padding: 10px 25px; border-radius: 30px; z-index: 10000; font-weight: bold; font-size: 0.9rem; box-shadow: 0 4px 15px rgba(0,0,0,0.2); opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); backdrop-filter: blur(5px); }
-        .custom-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-        /* --- AVATAR & BẠN BÈ --- */
-        .friend-marker-container { text-align: center; display: flex; flex-direction: column; align-items: center; transition: 0.3s; position: relative;}
-        .friend-marker-container:hover { transform: scale(1.1); z-index: 1000 !important; }
-        .friend-marker-container img { width: 50px; height: 50px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5); object-fit: cover; position: relative; z-index: 2; }
-        .friend-marker-name { background: rgba(0,0,0,0.7); color: white; font-size: 11px; padding: 3px 10px; border-radius: 12px; display: inline-block; margin-top: -10px; position: relative; z-index: 3; font-weight: bold; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2); }
-        .status-bubble { position: absolute; top: -35px; left: 50%; transform: translateX(-50%); background: #fff; color: #111; padding: 5px 12px; border-radius: 15px; font-size: 11px; font-weight: 800; white-space: nowrap; z-index: 4; box-shadow: 0 4px 10px rgba(0,0,0,0.2); animation: floatBubble 2.5s infinite ease-in-out; border: 2px solid #0d6efd; }
-        .status-bubble::after { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border-width: 6px 6px 0; border-style: solid; border-color: #0d6efd transparent transparent transparent; }
-        @keyframes floatBubble { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -6px); } }
-        .pulse-animation img { animation: pulse 2s infinite; border-color: #0d6efd; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.8); } 70% { box-shadow: 0 0 0 15px rgba(13, 110, 253, 0); } 100% { box-shadow: 0 0 0 0 rgba(13, 110, 253, 0); } }
-
-        .friends-panel { position: absolute; top: 140px; right: 20px; z-index: 999; width: 280px; border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; transition: all 0.3s; }
-        .friends-header { background: rgba(255,255,255,0.9); padding: 15px; font-weight: 900; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: #111; border-bottom: 1px solid rgba(0,0,0,0.05); }
-        .friends-list { overflow-y: auto; max-height: calc(100vh - 350px); padding: 5px 10px; transition: max-height 0.3s; }
-        .friend-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 10px; border-bottom: 1px solid rgba(0,0,0,0.05); cursor: pointer; transition: 0.2s; border-radius: 12px; }
-        .friend-item:hover { background: rgba(255,255,255,0.95); transform: translateX(-5px); box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
-        .friend-info { display: flex; align-items: center; gap: 12px; }
-        .friend-info img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .battery-pill { font-size: 0.75rem; background: #e0f8e9; color: #198754; padding: 4px 8px; border-radius: 12px; font-weight: 800; }
-
-        .map-controls-bottom { position: absolute; bottom: 30px; left: 20px; z-index: 999; display: flex; gap: 8px; flex-wrap: wrap; max-width: 60%; }
-        .btn-follow { position: absolute; bottom: 30px; right: 20px; z-index: 999; width: 50px; height: 50px; border-radius: 50%; border: none; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #444; transition: 0.3s; }
-        .btn-follow.tracking { color: #0d6efd; animation: pulse 2s infinite; }
-        
-        .status-updater { position: absolute; bottom: 85px; left: 50%; transform: translateX(-50%); z-index: 999; border-radius: 30px; display: flex; gap: 5px; padding: 6px 12px; align-items: center; }
-        .status-updater input { border: none; outline: none; background: transparent; width: 150px; font-size: 0.9rem; font-weight: bold; color: #333; }
-
-        .emoji-fly { position: fixed; pointer-events: none; z-index: 10000; font-size: 40px; animation: flyUp 1.5s ease-out forwards; }
-        @keyframes flyUp { 0% { transform: translateY(0) scale(0.5) rotate(0deg); opacity: 1; } 50% { transform: translateY(-100px) scale(1.5) rotate(15deg); opacity: 1; } 100% { transform: translateY(-200px) scale(2) rotate(-15deg); opacity: 0; } }
-        
-        .route-path { stroke-dasharray: 15, 10; animation: dash 20s linear infinite; }
-        @keyframes dash { to { stroke-dashoffset: -1000; } }
-
-        /* ========================================================= */
-        /* UI SIDE PANEL - CHUẨN GOOGLE MAPS                         */
-        /* ========================================================= */
-        #side-panel {
-            position: absolute; top: 0; left: -420px; /* Mặc định giấu đi */
-            width: 400px; height: 100%; background: #fff; z-index: 10000;
-            transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            box-shadow: 5px 0 15px rgba(0,0,0,0.2); display: flex;
-            flex-direction: column; overflow-y: auto; font-family: sans-serif;
-        }
-        #side-panel.open { left: 0; }
-        
-        .side-panel-close {
-            position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.9);
-            border: none; border-radius: 50%; width: 35px; height: 35px; font-size: 18px;
-            cursor: pointer; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            display: flex; align-items: center; justify-content: center; color: #333; transition: 0.2s;
-        }
-        .side-panel-close:hover { background: #f8f9fa; transform: scale(1.1); }
-        
-        .sp-header img { width: 100%; height: 250px; object-fit: cover; }
-        .sp-body { padding: 25px 20px; }
-        .sp-title { font-size: 1.6rem; font-weight: 800; margin-bottom: 5px; color: #111; line-height: 1.2; }
-        .sp-category { color: #555; font-size: 0.95rem; margin-bottom: 20px; font-weight: 500;}
-        
-        .sp-actions { display: flex; gap: 15px; margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 25px; justify-content: center; }
-        .sp-action-btn { display: flex; flex-direction: column; align-items: center; gap: 8px; background: none; border: none; color: #0d6efd; cursor: pointer; font-weight: 700; font-size: 0.85rem; text-decoration: none; }
-        .sp-action-btn .icon-circle { width: 45px; height: 45px; border-radius: 50%; background: #e7f1ff; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; transition: 0.2s; border: 1px solid transparent; }
-        .sp-action-btn:hover .icon-circle { background: #0d6efd; color: white; box-shadow: 0 4px 10px rgba(13,110,253,0.3); }
-        
-        .sp-info-item { display: flex; gap: 15px; align-items: center; margin-bottom: 18px; color: #444; font-size: 0.95rem; font-weight: 500;}
-        .sp-info-item i { color: #0d6efd; font-size: 1.2rem; width: 25px; text-align: center; }
-
-        @media (max-width: 768px) { #side-panel { width: 100%; left: -100%; } }
-    </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+<style>
+    #map { height: calc(100vh - 56px); width: 100%; z-index: 1; background: #1a1a1a; }
+    .glass-panel { background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: 0 10px 35px rgba(0, 0, 0, 0.15); border-radius: 20px; }
+    .quick-search-bar { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 6px 12px; display: flex; gap: 6px; align-items: center; max-width: 90vw; overflow-x: auto; scrollbar-width: none; }
+    .quick-search-bar::-webkit-scrollbar { display: none; }
+    .btn-quick { flex-shrink: 0; border: none; background: white; padding: 6px 14px; border-radius: 40px; font-weight: 700; font-size: 0.75rem; color: #333; cursor: pointer; transition: 0.3s; box-shadow: 0 2px 6px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 5px; }
+    .btn-quick:hover { background: #f0f4ff; transform: translateY(-2px); color: #0d6efd; }
+    .btn-quick.active-tool { background: #fd7e14 !important; color: white !important; }
+    .radius-control { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); z-index: 9999; padding: 8px 18px; display: flex; align-items: center; gap: 10px; }
+    #radius-input { width: 85px; text-align: center; font-weight: bold; border-radius: 8px; border: 1px solid #0d6efd; }
+    #search-results-panel { position: absolute; top: 20px; left: 20px; z-index: 999; width: 340px; max-height: 85vh; overflow-y: auto; display: none; padding: 15px; }
+    .friends-panel { position: absolute; top: 20px; right: 20px; z-index: 999; width: 260px; overflow: hidden; }
+    .friend-item { display: flex; align-items: center; justify-content: space-between; padding: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); cursor: pointer; }
+    .avatar-marker { width: 45px; height: 45px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); object-fit: cover; }
+    .marker-name-tag { background: rgba(0, 0, 0, 0.75); color: white; font-size: 10px; padding: 3px 10px; border-radius: 12px; white-space: nowrap; margin-top: 2px; font-weight: bold; text-align: center; }
+    .btn-group-sm-custom { display: flex; gap: 5px; margin-top: 8px; }
+    .route-btn { border: none; border-radius: 10px; padding: 8px 12px; background: #198754; color: #fff; font-weight: 700; flex-grow: 2; font-size: 0.8rem; }
+    .detail-btn { border: 1px solid #0d6efd; border-radius: 10px; padding: 8px 12px; background: #fff; color: #0d6efd; font-weight: 700; flex-grow: 1; font-size: 0.8rem; text-decoration: none; text-align: center; }
+    .detail-btn:hover { background: #0d6efd; color: #fff; }
+    .locate-me-btn { position: absolute; bottom: 100px; left: 20px; z-index: 999; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; color: #0d6efd; border: none; }
+    
+    @media (max-width: 767.98px) {
+        #map { height: calc(100vh - 65px); margin-top: -15px; }
+        .leaflet-touch .leaflet-control-layers, .leaflet-touch .leaflet-bar { border: 2px solid rgba(0,0,0,0.2); }
+    }
+    .leaflet-popup-content-wrapper { border-radius: 15px; padding: 5px; }
+    .star-rating { color: #ffc107; font-size: 14px; }
+</style>
 {% endblock %}
 
 {% block content %}
-    <div id="side-panel">
-        <button class="side-panel-close" onclick="closeSidePanel()"><i class="fa-solid fa-xmark"></i></button>
-        <div id="side-panel-content">
-            </div>
+<div class="quick-search-bar glass-panel shadow-sm">
+    <button class="btn-quick" onclick="findNearestByCategory('Quán ăn')">🍜 Ăn uống</button>
+    <button class="btn-quick" onclick="findNearestByCategory('Cafe')">☕ Cafe</button>
+    <button class="btn-quick" onclick="findNearestByCategory('Trạm xăng')">⛽ Xăng</button>
+    <button class="btn-quick" onclick="findNearestByCategory('Khách sạn')">🏨 Khách sạn</button>
+    <button class="btn-quick" onclick="findNearestByCategory('')">📍 Tất cả</button>
+    <button id="btn-picker" class="btn-quick" onclick="togglePickerMode()">🎯 Cắm mốc</button>
+    <a href="{% url 'about' %}" class="btn-quick text-decoration-none text-dark">
+        <i class="fa-solid fa-circle-info text-info"></i> Giới thiệu
+    </a>
+</div>
+
+<!-- Đã bỏ giá trị mặc định để nó hiển thị Vô hạn ngay từ đầu -->
+<div class="radius-control glass-panel shadow-sm">
+    <label class="fw-bold extra-small m-0 text-dark">Bán kính:</label>
+    <input type="number" id="radius-input" class="form-control form-control-sm" placeholder="Vô hạn" onchange="performSearch()">
+    <span id="radius-status" class="badge bg-primary rounded-pill">Vô hạn</span>
+</div>
+
+<div id="search-results-panel" class="glass-panel shadow-lg">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold m-0" id="search-title">Kết quả</h6>
+        <button class="btn-close btn-sm" onclick="document.getElementById('search-results-panel').style.display='none'"></button>
     </div>
+    <div id="search-results-content"></div>
+</div>
 
-    <div class="quick-search-bar glass-panel">
-        <button class="btn-quick" onclick="findNearestByCategory('Quán ăn')">🍜 Quán ăn</button>
-        <button class="btn-quick" onclick="findNearestByCategory('Cafe')">☕ Cafe</button>
-        
-        <div class="dropdown-quick">
-            <button class="btn-quick" style="background: rgba(13, 110, 253, 0.1); color: #0d6efd;">
-                ✨ Khác <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem;"></i>
-            </button>
-            <div class="dropdown-content">
-                <button onclick="findNearestByCategory('Trạm xăng')">⛽ Trạm xăng</button>
-                <button onclick="findNearestByCategory('Khách sạn')">🏨 Khách sạn</button>
-                <button onclick="findNearestByCategory('Giải trí')">🎮 Giải trí</button>
-                <button onclick="findNearestByCategory('Siêu thị')">🛒 Siêu thị</button>
-                <button onclick="findNearestByCategory('Công viên')">🌳 Công viên</button>
-                <button onclick="findNearestByCategory('Bệnh viện')">🏥 Bệnh viện</button>
-            </div>
-        </div>
-
-        <div style="width: 2px; height: 20px; background: rgba(0,0,0,0.1); margin: 0 5px;"></div>
-        
-        <button id="btn-ruler" class="btn-quick" onclick="toggleRulerMode()">📏 Đo</button>
-        <button id="btn-area" class="btn-quick" onclick="toggleAreaMode()">📐 Diện tích</button>
-        </div>
+<!-- Bottom Navigation cho Mobile -->
+<nav class="navbar fixed-bottom navbar-light bg-white border-top d-md-none p-0 shadow-lg">
+    <div class="d-flex w-100 justify-content-around py-2">
+        <a href="{% url 'map_home' %}" class="text-center text-decoration-none text-primary fw-bold flex-grow-1"><i class="fa-solid fa-map-location-dot fs-4"></i><br><small>Bản đồ</small></a>
+        <a href="{% url 'find_friends' %}" class="text-center text-decoration-none text-muted flex-grow-1"><i class="fa-solid fa-user-group fs-4"></i><br><small>Bạn bè</small></a>
+        <a href="{% url 'add_location' %}" class="text-center text-decoration-none text-primary flex-grow-1">
+            <div class="bg-primary text-white rounded-circle shadow d-inline-flex align-items-center justify-content-center" style="width: 45px; height: 45px; margin-top: -20px; border: 3px solid white;"><i class="fa-solid fa-plus fs-5"></i></div>
+        </a>
+        <a href="{% url 'custom_dashboard' %}" class="text-center text-decoration-none text-muted flex-grow-1"><i class="fa-solid fa-list-check fs-4"></i><br><small>Quản lý</small></a>
     </div>
+</nav>
 
-    <div class="friends-panel glass-panel">
-        <div class="friends-header" onclick="toggleFriendsList()">
-            <span><i class="fa-solid fa-earth-americas text-primary"></i> Bạn bè (<span id="friend-count">0</span>)</span>
-            <i class="fa-solid fa-chevron-down text-muted" id="friend-toggle-icon"></i>
-        </div>
-        <div class="friends-list" id="friends-list-container"></div>
-    </div>
+<button class="locate-me-btn glass-panel shadow" onclick="moveToMyLocation()"><i class="fa-solid fa-location-crosshairs"></i></button>
+<div id="map"></div>
 
-    <div class="status-updater glass-panel">
-        <span class="fs-5">💭</span>
-        <input type="text" id="my-status-input" placeholder="Bạn đang làm gì?">
-        <button class="btn btn-sm btn-primary rounded-pill fw-bold" onclick="sendMyStatus()" style="font-size: 0.75rem;">Đăng</button>
-    </div>
-
-    <div class="map-controls-bottom glass-panel p-1 rounded-pill">
-        <button class="btn btn-sm btn-light rounded-pill fw-bold" onclick="changeMapLayer('satellite')">🛰️ Vệ tinh</button>
-        <button class="btn btn-sm btn-dark rounded-pill fw-bold" onclick="changeMapLayer('dark')">🌙 Ban đêm</button>
-        <button class="btn btn-sm btn-light rounded-pill fw-bold" onclick="changeMapLayer('street')">🗺️ Phố</button>
-    </div>
-
-    <button id="btn-follow" class="btn-follow glass-panel" onclick="toggleFollowMode()">
-        <i class="fa-solid fa-location-crosshairs"></i>
-    </button>
-
-    <div id="map"></div>
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+<script>
+    var map = L.map('map', { zoomControl: false }).setView([10.762622, 106.660172], 14);
+    L.tileLayer('http://mt1.google.com/vt/lyrs=m&hl=vi&x={x}&y={y}&z={z}').addTo(map);
+    var data = {{ locations_json|safe }};
+    var myLat = null, myLng = null, searchCircle = null, pickerMarker = null, routingControl = null;
+    var currentUserName = "{{ user.username|default:'Tôi' }}";
     
-    <script>
-        // ----------------------------------------------------
-        // 1. KHỞI TẠO BẢN ĐỒ & TOAST THÔNG BÁO
-        // ----------------------------------------------------
-        window.showToast = function(message, duration = 3000) {
-            let toast = document.createElement('div'); toast.className = 'custom-toast'; toast.innerHTML = message; document.body.appendChild(toast);
-            setTimeout(() => toast.classList.add('show'), 10);
-            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 400); }, duration);
-        };
+    // Cập nhật số lượng hiển thị mỗi trang thành 5
+    let searchCache = [], currentCat = "", itemsPerPage = 5, isInfinite = true, isPicker = false;
 
-        var map = L.map('map', { zoomControl: false }).setView([10.762622, 106.660172], 14);
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
+    // Định vị
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(pos => {
+            myLat = pos.coords.latitude;
+            myLng = pos.coords.longitude;
+            fetch('/api/update_location/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+                body: JSON.stringify({ lat: myLat, lng: myLng })
+            });
+        }, null, { enableHighAccuracy: true });
+    }
+    window.moveToMyLocation = () => { if(myLat) map.flyTo([myLat, myLng], 17); };
 
-        var currentTileLayer = null;
-        window.changeMapLayer = function(type) {
-            if (currentTileLayer) map.removeLayer(currentTileLayer);
-            if (type === 'satellite') { currentTileLayer = L.tileLayer('http://mt0.google.com/vt/lyrs=y&hl=vi&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map); }
-            else if (type === 'dark') { currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(map); }
-            else { currentTileLayer = L.tileLayer('http://mt0.google.com/vt/lyrs=m&hl=vi&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map); }
-        };
-        changeMapLayer('satellite');
+    // Công cụ Picker
+    window.togglePickerMode = () => {
+        isPicker = !isPicker;
+        document.getElementById('btn-picker').classList.toggle('active-tool', isPicker);
+        map.getContainer().style.cursor = isPicker ? 'crosshair' : '';
+    };
 
-        var data = {{ locations_json|safe }};
-        var currentUserName = "{{ user.username|default:'Khách' }}";
+    map.on('click', e => {
+        if (isPicker) {
+            if (pickerMarker) map.removeLayer(pickerMarker);
+            pickerMarker = L.marker(e.latlng, { icon: L.divIcon({ html: '🎯', className: 'fs-3', iconAnchor: [15, 15] }) }).addTo(map);
+            performSearch(e.latlng);
+        }
+    });
+
+    window.findNearestByCategory = (cat) => { currentCat = cat; performSearch(); };
+    window.setInfiniteRadius = () => { document.getElementById('radius-input').value = ""; performSearch(); };
+
+    function performSearch(customCenter = null) {
+        const inputVal = document.getElementById('radius-input').value;
+        let radiusLimit = inputVal ? parseInt(inputVal) : 9999999;
+        isInfinite = !inputVal;
+        let center = customCenter || L.latLng(myLat || map.getCenter().lat, myLng || map.getCenter().lng);
+        document.getElementById('radius-status').innerText = isInfinite ? "Vô hạn" : (radiusLimit/1000).toFixed(1) + "km";
         
-        // ----------------------------------------------------
-        // 2. HỆ THỐNG BẠN BÈ & VỊ TRÍ CÁ NHÂN
-        // ----------------------------------------------------
-        const friendsListDiv = document.getElementById('friends-list-container');
-        let friendLayerGroup = L.layerGroup().addTo(map);
-        var userCurrentMarker = null; var isFollowMode = false; var myStatusDiv = null;
-        var myCurrentLat = null, myCurrentLng = null;
+        if (searchCircle) map.removeLayer(searchCircle);
+        searchCache = data.features.filter(f => {
+            let dist = center.distanceTo(L.latLng(f.geometry.coordinates[1], f.geometry.coordinates[0]));
+            f.dist = dist;
+            return (f.properties.category || "").toLowerCase().includes(currentCat.toLowerCase()) && (isInfinite || dist <= radiusLimit);
+        }).sort((a, b) => a.dist - b.dist);
 
-        window.toggleFriendsList = function() {
-            let list = document.getElementById('friends-list-container'); let icon = document.getElementById('friend-toggle-icon');
-            if (list.style.display === 'none') { list.style.display = 'block'; icon.classList.replace('fa-chevron-up', 'fa-chevron-down'); }
-            else { list.style.display = 'none'; icon.classList.replace('fa-chevron-down', 'fa-chevron-up'); }
-        };
-
-        window.shootEmoji = function(emoji, lat, lng) {
-            map.closePopup(); map.flyTo([lat, lng], 17, { animate: true, duration: 1 });
-            setTimeout(() => {
-                for(let i=0; i<15; i++) {
-                    let el = document.createElement('div'); el.className = 'emoji-fly'; el.innerText = emoji;
-                    el.style.left = (window.innerWidth / 2 - 50 + Math.random() * 100) + 'px'; el.style.top = (window.innerHeight / 2 + Math.random() * 50) + 'px';
-                    el.style.animationDelay = (Math.random() * 0.5) + 's'; document.body.appendChild(el); setTimeout(() => el.remove(), 2000);
-                }
-            }, 1000);
-        };
-
-        window.sendMyStatus = function() {
-            let statusText = document.getElementById('my-status-input').value;
-            fetch('/api/update_status/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: statusText }) })
-            .then(() => { showToast("✅ Cập nhật trạng thái thành công!"); if(myStatusDiv) myStatusDiv.innerHTML = `<div class="status-bubble">${statusText}</div>`; });
-        };
-
-        function fetchFriendsData() {
-            fetch('/api/friends/').then(res => res.json()).then(data => {
-                if(data.status === 'success') {
-                    let friends = data.friends; document.getElementById('friend-count').innerText = friends.length;
-                    friendLayerGroup.clearLayers(); friendsListDiv.innerHTML = '';
-                    friends.forEach(f => {
-                        let statusHtml = f.status ? `<div class="status-bubble">${f.status}</div>` : '';
-                        let icon = L.divIcon({ className: 'custom-friend-icon', html: `<div class="friend-marker-container">${statusHtml}<img src="${f.avatar}"><div class="friend-marker-name">${f.name}</div></div>`, iconSize: [60, 90], iconAnchor: [30, 45] });
-                        L.marker([f.lat, f.lng], {icon: icon, zIndexOffset: 100}).addTo(friendLayerGroup)
-                         .bindPopup(`<div class="text-center p-2"><img src="${f.avatar}" style="width:60px; border-radius:50%; margin-bottom:10px;"><br><h5 class="fw-bold mb-1">${f.name}</h5><p class="mb-2 fw-bold ${f.battery < 20 ? 'text-danger' : 'text-success'}">🔋 Đang sạc: ${f.battery}%</p><div class="d-flex justify-content-center gap-2 mt-2 mb-2"><button class="btn btn-light fs-4 p-1 shadow-sm" onclick="shootEmoji('💩', ${f.lat}, ${f.lng})">💩</button><button class="btn btn-light fs-4 p-1 shadow-sm" onclick="shootEmoji('❤️', ${f.lat}, ${f.lng})">❤️</button></div><button class="btn btn-primary btn-sm w-100 fw-bold" onclick="startNavigation(${f.lat}, ${f.lng})"><i class="fa-solid fa-car"></i> Dẫn đường tới đây</button></div>`);
-                        friendsListDiv.innerHTML += `<div class="friend-item" onclick="map.flyTo([${f.lat}, ${f.lng}], 17);"><div class="friend-info"><img src="${f.avatar}"><div><span class="fw-bold text-dark d-block" style="line-height: 1;">${f.name}</span>${f.status ? `<small class="text-muted" style="font-size: 0.75rem;">${f.status}</small>` : ''}</div></div><div class="battery-pill" style="${f.battery < 20 ? 'background:#f8d7da; color:#dc3545;' : ''}">🔋 ${f.battery}%</div></div>`;
-                    });
-                }
-            }).catch(e => console.log(e));
+        if (!isInfinite) {
+            searchCircle = L.circle(center, { radius: radiusLimit, color: '#0d6efd', fillOpacity: 0.1, weight: 1 }).addTo(map);
+            map.fitBounds(searchCircle.getBounds(), { padding: [30, 30] });
         }
-        fetchFriendsData(); setInterval(fetchFriendsData, 10000);
-
-        window.toggleFollowMode = function() {
-            isFollowMode = !isFollowMode; let btn = document.getElementById('btn-follow');
-            if (isFollowMode) { btn.classList.add('tracking'); if (userCurrentMarker) map.flyTo(userCurrentMarker.getLatLng(), 17); } 
-            else { btn.classList.remove('tracking'); }
-        };
-        map.on('dragstart', function() { isFollowMode = false; document.getElementById('btn-follow').classList.remove('tracking'); });
-
-        function sendLocationToServer(lat, lng, battery) { fetch('/api/update_location/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat: lat, lng: lng, battery: battery }) }); }
-
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(function(position) {
-                myCurrentLat = position.coords.latitude; myCurrentLng = position.coords.longitude;
-                if (userCurrentMarker) { userCurrentMarker.setLatLng([myCurrentLat, myCurrentLng]); } 
-                else {
-                    let iconHtml = `<div class="friend-marker-container pulse-animation"><div id="my-status-container"></div><img src="https://ui-avatars.com/api/?name=${currentUserName}&background=0D8ABC&color=fff&size=128"><div class="friend-marker-name">TÔI</div></div>`;
-                    var myAvatarIcon = L.divIcon({ className: 'user-avatar-marker', html: iconHtml, iconSize: [60, 70], iconAnchor: [30, 35] });
-                    userCurrentMarker = L.marker([myCurrentLat, myCurrentLng], {icon: myAvatarIcon, zIndexOffset: 1000}).addTo(map);
-                    myStatusDiv = document.getElementById('my-status-container'); map.setView([myCurrentLat, myCurrentLng], 15);
-                }
-                if (isFollowMode) map.panTo([myCurrentLat, myCurrentLng]);
-                if ('getBattery' in navigator) { navigator.getBattery().then(b => sendLocationToServer(myCurrentLat, myCurrentLng, Math.round(b.level * 100))); } else { sendLocationToServer(myCurrentLat, myCurrentLng, 100); }
-            }, () => console.log("Lỗi GPS, dùng tọa độ mặc định của map."), { enableHighAccuracy: false, timeout: 5000 });
-        }
-
-        // ----------------------------------------------------
-        // 3. UI SIDE PANEL (BẢNG TRƯỢT CHI TIẾT GOOGLE MAPS)
-        // ----------------------------------------------------
-        window.openSidePanel = function(feature) {
-            let props = feature.properties;
-            let lat = feature.geometry.coordinates[1];
-            let lng = feature.geometry.coordinates[0];
-            
-            // Nếu không có ảnh thì lấy một ảnh mặc định cho đẹp
-            let imageUrl = props.image_url ? props.image_url : `https://ui-avatars.com/api/?name=${props.name}&background=f8f9fa&color=333&size=512`;
-            
-            let html = `
-                <div class="sp-header">
-                    <img src="${imageUrl}" alt="${props.name}">
-                </div>
-                <div class="sp-body">
-                    <h2 class="sp-title">${props.name}</h2>
-                    <div class="sp-category"><span class="badge bg-warning text-dark">${props.category}</span></div>
-                    
-                    <div class="sp-actions">
-                        <button class="sp-action-btn" onclick="startNavigation(${lat}, ${lng})">
-                            <div class="icon-circle"><i class="fa-solid fa-diamond-turn-right"></i></div>
-                            Đường đi
-                        </button>
-                        <a href="/location/${props.pk}/" class="sp-action-btn">
-                            <div class="icon-circle"><i class="fa-solid fa-magnifying-glass"></i></div>
-                            Xem thêm
-                        </a>
-                    </div>
-                    
-                    <div class="sp-info-item">
-                        <i class="fa-solid fa-map-location-dot"></i>
-                        <span>Tọa độ: ${lat.toFixed(5)}, ${lng.toFixed(5)}</span>
-                    </div>
-                </div>
-            `;
-            
-            document.getElementById('side-panel-content').innerHTML = html;
-            document.getElementById('side-panel').classList.add('open');
-            
-            // Bay camera mượt mà tới điểm đó và lùi nhẹ sang phải để không bị panel che mất
-            map.flyTo([lat, lng], 16, { animate: true, duration: 1 });
-        };
-
-        window.closeSidePanel = function() {
-            document.getElementById('side-panel').classList.remove('open');
-        };
-
-        // ----------------------------------------------------
-        // 4. TÍNH NĂNG VẼ ĐƯỜNG API TRỰC TIẾP
-        // ----------------------------------------------------
-        var currentRouteLayer = null; var destMarkerLayer = null;
-
-        window.startNavigation = function(destLat, destLon) {
-            document.body.style.cursor = 'wait'; showToast("📍 Đang gọi máy chủ tìm đường đi...");
-            map.closePopup(); closeSidePanel(); // Ẩn panel đi để nhìn đường cho rõ
-
-            let startLat = myCurrentLat, startLng = myCurrentLng;
-            if (!startLat || !startLng) {
-                let center = map.getCenter(); startLat = center.lat; startLng = center.lng;
-                showToast("⚠️ Đang dùng tọa độ giả lập để test (do lỗi GPS).", 3000);
-            }
-
-            window.clearNavigation();
-
-            let url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${destLon},${destLat}?overview=full&geometries=geojson`;
-            fetch(url).then(response => response.json()).then(data => {
-                document.body.style.cursor = 'default';
-                if(data.code !== 'Ok' || !data.routes || data.routes.length === 0) { showToast("❌ Không tìm được đường giao thông!"); return; }
-
-                let routeGeoJSON = data.routes[0].geometry;
-                let distanceKm = (data.routes[0].distance / 1000).toFixed(2);
-                let timeMin = Math.round(data.routes[0].duration / 60);
-
-                showToast(`✅ Khoảng cách: <b>${distanceKm} km</b> (${timeMin} phút).`, 4000);
-
-                currentRouteLayer = L.geoJSON(routeGeoJSON, { style: { color: '#0d6efd', weight: 8, opacity: 0.9, className: 'route-path' } }).addTo(map);
-
-                let markerIcon = L.divIcon({ className: 'dest-marker', html: `<div style="background:#dc3545; color:white; padding:5px; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border:3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.5); font-size:14px;">📍</div>`, iconSize: [30, 30], iconAnchor: [15, 30] });
-                destMarkerLayer = L.marker([destLat, destLon], {icon: markerIcon}).addTo(map);
-
-                map.fitBounds(currentRouteLayer.getBounds(), {padding: [50, 50]});
-                
-                let btn = document.createElement('button'); btn.id = 'btn-clear-route'; btn.innerHTML = '❌ Hủy dẫn đường';
-                btn.style.cssText = `position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); z-index: 9999; background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;`;
-                btn.onclick = window.clearNavigation; document.body.appendChild(btn);
-            })
-            .catch(err => { document.body.style.cursor = 'default'; showToast("❌ Lỗi mạng.", 3000); console.error(err); });
-        };
-
-        window.clearNavigation = function() {
-            if (currentRouteLayer) { map.removeLayer(currentRouteLayer); currentRouteLayer = null; }
-            if (destMarkerLayer) { map.removeLayer(destMarkerLayer); destMarkerLayer = null; }
-            let btn = document.getElementById('btn-clear-route'); if (btn) btn.remove();
-        };
-
-        // ----------------------------------------------------
-        // 5. CÔNG CỤ TÌM NHANH (DANH SÁCH TỪ GẦN ĐẾN XA)
-        // ----------------------------------------------------
-        window.findNearestByCategory = function(categoryName) {
-            showToast(`⏳ Đang tìm danh sách <b>${categoryName}</b> quanh bạn...`, 1500);
-            
-            let searchLat = myCurrentLat, searchLng = myCurrentLng;
-            if(!searchLat || !searchLng) { searchLat = map.getCenter().lat; searchLng = map.getCenter().lng; }
-
-            var userLoc = L.latLng(searchLat, searchLng);
-            var candidates = data.features.filter(f => (f.properties.category || "").toLowerCase().includes(categoryName.toLowerCase()));
-            
-            if (candidates.length === 0) { return showToast(`😔 Không có dữ liệu cho mục này.`); }
-
-            // TÍNH TOÁN: Tính khoảng cách từ bạn đến TẤT CẢ các điểm trong danh mục
-            candidates.forEach(f => {
-                let lat = f.geometry.coordinates[1];
-                let lng = f.geometry.coordinates[0];
-                f.distanceToUser = userLoc.distanceTo(L.latLng(lat, lng));
-            });
-
-            // SẮP XẾP: Từ điểm gần nhất đến xa nhất
-            candidates.sort((a, b) => a.distanceToUser - b.distanceToUser);
-
-            // Mở Panel hiển thị toàn bộ danh sách
-            openSearchResultsPanel(candidates, categoryName);
-        };
-
-        // Hàm render Danh sách Kết quả vào Side Panel
-        window.openSearchResultsPanel = function(results, title) {
-            // Phần Header của Bảng
-            let html = `
-                <div class="sp-header" style="height: 100px; background: linear-gradient(135deg, #0d6efd, #0dcaf0); display: flex; align-items: flex-end; padding: 20px;">
-                    <h3 style="color: white; margin: 0; font-weight: 800;"><i class="fa-solid fa-list-ul"></i> Danh sách ${title}</h3>
-                </div>
-                <div class="sp-body" style="padding: 15px; background: #f4f7f6; min-height: calc(100vh - 100px);">
-                    <p class="text-muted fw-bold mb-3 small">Tìm thấy ${results.length} kết quả (từ gần đến xa)</p>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-            `;
-
-            // Lặp qua từng kết quả để vẽ thẻ (Card)
-            results.forEach(f => {
-                let props = f.properties;
-                let lat = f.geometry.coordinates[1];
-                let lng = f.geometry.coordinates[0];
-                let distKm = (f.distanceToUser / 1000).toFixed(2);
-                let imageUrl = props.image_url ? props.image_url : `https://ui-avatars.com/api/?name=${props.name}&background=e9ecef&color=666&size=200`;
-                
-                // Rút gọn mô tả nếu quá dài
-                let desc = props.description ? props.description : 'Đang cập nhật mô tả cho địa điểm này...';
-                if(desc.length > 55) desc = desc.substring(0, 55) + '...';
-
-                html += `
-                    <div style="background: white; border-radius: 12px; overflow: hidden; display: flex; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: transform 0.2s; cursor: pointer; border: 1px solid #e9ecef;" 
-                         onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'"
-                         onclick="map.flyTo([${lat}, ${lng}], 18, {animate: true, duration: 1.5});">
-                         
-                        <img src="${imageUrl}" style="width: 110px; height: 130px; object-fit: cover;" alt="${props.name}">
-                        
-                        <div style="padding: 12px; flex: 1; display: flex; flex-direction: column;">
-                            <h6 style="margin: 0 0 4px 0; font-weight: 800; color: #212529; font-size: 1rem; line-height: 1.2;">${props.name}</h6>
-                            <span style="font-size: 0.75rem; color: #dc3545; font-weight: 800; margin-bottom: 6px;"><i class="fa-solid fa-location-dot"></i> Cách bạn ${distKm} km</span>
-                            <p style="margin: 0 0 10px 0; font-size: 0.8rem; color: #6c757d; line-height: 1.3; flex: 1;">${desc}</p>
-                            
-                            <div style="display: flex; gap: 8px;">
-                                <button onclick="event.stopPropagation(); startNavigation(${lat}, ${lng})" style="background: #0d6efd; color: white; border: none; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: bold; flex: 1; transition: 0.2s;"><i class="fa-solid fa-diamond-turn-right"></i> Chỉ đường</button>
-                                <a href="/location/${props.pk}/" onclick="event.stopPropagation();" style="background: #eef2ff; color: #0d6efd; border: 1px solid #b6d4fe; padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: bold; text-decoration: none; text-align: center; flex: 1;">Chi tiết</a>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            html += `</div></div>`;
-            
-            // Đẩy HTML vào Panel và mở lên
-            document.getElementById('side-panel-content').innerHTML = html;
-            document.getElementById('side-panel').classList.add('open');
-
-            // Tự động thu phóng bản đồ để nhìn thấy TOÀN BỘ danh sách kết quả vừa tìm được
-            if (results.length > 0) {
-                let bounds = L.latLngBounds(results.map(f => [f.geometry.coordinates[1], f.geometry.coordinates[0]]));
-                let searchLat = myCurrentLat || map.getCenter().lat;
-                let searchLng = myCurrentLng || map.getCenter().lng;
-                bounds.extend([searchLat, searchLng]); // Đưa cả vị trí của mình vào khung hình
-                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
-            }
-        };
-
-        // ----------------------------------------------------
-        // 6. CÔNG CỤ GIS 
-        // ----------------------------------------------------
-        let isRulerMode = false, isAreaMode = false, isBufferMode = false; let rulerPoints = [], totalDistanceKm = 0, areaPoints = []; let gisLayerGroup = L.layerGroup().addTo(map);
-        function resetAllGisModes() { isRulerMode = isAreaMode = isBufferMode = false; document.querySelectorAll('.btn-quick').forEach(b => b.classList.remove('active-tool')); document.getElementById('map').style.cursor = ''; gisLayerGroup.clearLayers(); rulerPoints = []; areaPoints = []; totalDistanceKm = 0; }
-        window.toggleRulerMode = function() { let wasActive = isRulerMode; resetAllGisModes(); if (!wasActive) { isRulerMode = true; document.getElementById('btn-ruler').classList.add('active-tool'); document.getElementById('map').style.cursor = 'crosshair'; } };
-        window.toggleAreaMode = function() { let wasActive = isAreaMode; resetAllGisModes(); if (!wasActive) { isAreaMode = true; document.getElementById('btn-area').classList.add('active-tool'); document.getElementById('map').style.cursor = 'crosshair'; } };
-        window.toggleBufferMode = function() { let wasActive = isBufferMode; resetAllGisModes(); if (!wasActive) { isBufferMode = true; document.getElementById('btn-buffer').classList.add('active-tool'); document.getElementById('map').style.cursor = 'crosshair'; } };
-
-        const R_EARTH = 6371; const toRad = a => a * Math.PI / 180; const toDeg = a => a * 180 / Math.PI;
-        function haversineDist(lat1, lon1, lat2, lon2) { const a = Math.sin(toRad(lat2-lat1)/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(toRad(lon2-lon1)/2)**2; return R_EARTH * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); }
-        function getDestPoint(lat, lng, distKm, bearingDeg) { const d = distKm / R_EARTH, brng = toRad(bearingDeg), lat1 = toRad(lat), lon1 = toRad(lng); const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng)); const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)); return [toDeg(lat2), toDeg(lon2)]; }
-        function sphericalArea(locations) { if (locations.length < 3) return 0; let area = 0; for (let i = 0; i < locations.length; i++) { let p1 = locations[i], p2 = locations[(i + 1) % locations.length]; area += (toRad(p2.lng) - toRad(p1.lng)) * (Math.sin(toRad(p1.lat)) + Math.sin(toRad(p2.lat))); } return Math.abs((area * 6371000 * 6371000) / 2.0); }
-
-        map.on('click', function(e) {
-            if (!isRulerMode && !isAreaMode && !isBufferMode) return;
-            if (isRulerMode) { rulerPoints.push(e.latlng); L.circleMarker(e.latlng, {radius: 5, color: '#dc3545', fillColor: '#dc3545', fillOpacity: 1}).addTo(gisLayerGroup); if (rulerPoints.length === 1) { L.popup({closeButton: false, autoClose: false}).setLatLng(e.latlng).setContent("<b class='text-danger'>Mốc 1</b>").addTo(gisLayerGroup); } else { let p1 = rulerPoints[rulerPoints.length - 2], p2 = rulerPoints[rulerPoints.length - 1]; L.polyline([p1, p2], {color: '#dc3545', dashArray: '5,5', weight: 3}).addTo(gisLayerGroup); totalDistanceKm += haversineDist(p1.lat, p1.lng, p2.lat, p2.lng); L.popup({closeButton: false, autoClose: false}).setLatLng(p2).setContent(`<div class='text-center text-danger'>Tổng:<br><b>${totalDistanceKm.toFixed(2)}km</b></div>`).addTo(gisLayerGroup); } }
-            if (isAreaMode) { areaPoints.push(e.latlng); L.circleMarker(e.latlng, {radius: 4, color: '#0dcaf0', fillColor: '#0dcaf0', fillOpacity: 1}).addTo(gisLayerGroup); gisLayerGroup.eachLayer(layer => { if (layer instanceof L.Polygon) gisLayerGroup.removeLayer(layer); }); if (areaPoints.length >= 3) { L.polygon(areaPoints, {color: '#0dcaf0', fillColor: '#0dcaf0', fillOpacity: 0.4}).addTo(gisLayerGroup); let aSq = sphericalArea(areaPoints); let disp = aSq >= 1e6 ? (aSq/1e6).toFixed(2)+" km²" : (aSq >= 1e4 ? (aSq/1e4).toFixed(2)+" ha" : aSq.toFixed(1)+" m²"); L.popup({closeButton: false, autoClose: false}).setLatLng(e.latlng).setContent(`Khu vực:<br><b class='text-info'>${disp}</b>`).addTo(gisLayerGroup); } }
-            if (isBufferMode) { gisLayerGroup.clearLayers(); let rKm = parseFloat(document.getElementById('buffer-radius').value) || 2.0; let circleCoords = []; for (let angle = 0; angle <= 360; angle += 6) circleCoords.push(getDestPoint(e.latlng.lat, e.latlng.lng, rKm, angle)); L.polygon(circleCoords, {color: '#fd7e14', weight: 2, fillColor: '#fd7e14', fillOpacity: 0.3}).addTo(gisLayerGroup); L.circleMarker(e.latlng, {radius: 5, color: '#000', fillColor: '#fff', fillOpacity: 1}).addTo(gisLayerGroup); let found = []; data.features.forEach(f => { let pLat = f.geometry.coordinates[1], pLng = f.geometry.coordinates[0]; let dist = haversineDist(e.latlng.lat, e.latlng.lng, pLat, pLng); if (dist <= rKm) { found.push(`<li><b>${f.properties.name}</b> <small>(${dist.toFixed(1)}km)</small></li>`); L.circleMarker([pLat, pLng], {radius: 8, color: '#fff', fillColor: '#28a745', fillOpacity: 1, weight: 2}).addTo(gisLayerGroup); } }); L.popup({maxWidth: 250}).setLatLng(e.latlng).setContent(`<div class="fw-bold text-warning border-bottom pb-1 mb-1">Radar ${rKm}km</div><div style="max-height:150px; overflow-y:auto;">${found.length ? `<ul class="ps-3 mb-0" style="font-size:0.9em;">${found.join('')}</ul>` : 'Trống.'}</div>`).openOn(map); }
-        });
-
-        // ----------------------------------------------------
-        // 7. XỬ LÝ SỰ KIỆN CLICK VÀO ĐỊA ĐIỂM TRÊN BẢN ĐỒ
-        // ----------------------------------------------------
-        // ----------------------------------------------------
-// ICON THEO DANH MỤC ĐỊA ĐIỂM
-// ----------------------------------------------------
-function getCategoryIcon(category){
-    let iconEmoji = "📍";
-
-    switch((category || "").toLowerCase()){
-        case "quán ăn":
-            iconEmoji = "🍜";
-            break;
-        case "cafe":
-            iconEmoji = "☕";
-            break;
-        case "trạm xăng":
-            iconEmoji = "⛽";
-            break;
-        case "khách sạn":
-            iconEmoji = "🏨";
-            break;
-        case "giải trí":
-            iconEmoji = "🎮";
-            break;
-        case "siêu thị":
-            iconEmoji = "🛒";
-            break;
-        case "công viên":
-            iconEmoji = "🌳";
-            break;
-        case "bệnh viện":
-            iconEmoji = "🏥";
-            break;
-        default:
-            iconEmoji = "📍";
+        renderSearchResults(1);
     }
 
-    return L.divIcon({
-        className: "custom-place-icon",
-        html: `
-        <div style="
-            background:white;
-            border-radius:50%;
-            width:36px;
-            height:36px;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            font-size:18px;
-            border:3px solid #0d6efd;
-            box-shadow:0 4px 10px rgba(0,0,0,0.3);
-        ">
-            ${iconEmoji}
-        </div>
-        `,
-        iconSize:[36,36],
-        iconAnchor:[18,36]
-    });
-}
-       L.geoJSON(data, { 
-
-    pointToLayer: function(feature, latlng){
-        let category = feature.properties.category;
-        return L.marker(latlng,{
-            icon: getCategoryIcon(category)
-        });
-    },
-
-    onEachFeature: function (feature, layer) { 
-        layer.on('click', function() {
-            openSidePanel(feature);
-        });
-    } 
-
-}).addTo(map);
+    function renderSearchResults(page) {
+        const container = document.getElementById('search-results-content');
+        document.getElementById('search-results-panel').style.display = 'block';
+        document.getElementById('search-title').innerText = `Kết quả: ${currentCat || 'Tất cả'} (${searchCache.length})`;
         
+        const start = (page - 1) * itemsPerPage;
+        const paged = searchCache.slice(start, start + itemsPerPage);
+        
+        // Tính toán tổng số trang
+        const totalPages = Math.ceil(searchCache.length / itemsPerPage);
+        
+        let html = '';
+        paged.forEach(f => {
+            let p = f.properties;
+            let imgUrl = p.image_url || 'https://via.placeholder.com/150';
+            html += `
+            <div class="card mb-3 border-0 shadow-sm rounded-4 overflow-hidden">
+                <img src="${imgUrl}" class="w-100" style="height:110px; object-fit:cover;">
+                <div class="card-body p-2" onclick="map.flyTo([${f.geometry.coordinates[1]}, ${f.geometry.coordinates[0]}], 18)">
+                    <h6 class="fw-bold m-0">${p.name}</h6>
+                    <div class="small text-warning">${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} (${p.avg_rating})</div>
+                    <div class="small text-muted"><i class="fa-regular fa-clock"></i> ${p.open_time} - ${p.close_time}</div>
+                    <small class="text-danger fw-bold d-block">📍 ${(f.dist / 1000).toFixed(2)} km</small>
+                    <a href="/location/${p.pk}/" class="btn btn-primary btn-sm w-100 mt-2 rounded-pill">Chi tiết</a>
+                </div>
+            </div>`;
+        });
+        
+        // Thêm UI phân trang nếu có nhiều hơn 1 trang
+        if (totalPages > 1) {
+            html += `<div class="d-flex justify-content-center flex-wrap gap-1 mt-3 mb-2">`;
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<button class="btn btn-sm ${i === page ? 'btn-primary' : 'btn-outline-primary'} rounded-circle fw-bold" style="width: 32px; height: 32px; padding: 0;" onclick="renderSearchResults(${i})">${i}</button>`;
+            }
+            html += `</div>`;
+        }
 
-    </script>
+        container.innerHTML = html || '<p class="text-center text-muted">Không có địa điểm nào.</p>';
+        
+        // Cuộn lên đầu panel kết quả mỗi khi chuyển trang
+        document.getElementById('search-results-panel').scrollTop = 0;
+    }
+
+    // Hiển thị Marker trên bản đồ
+    function getEmoji(cat) {
+        let c = (cat || "").toLowerCase();
+        if (c.includes("ăn")) return "🍜"; if (c.includes("cafe")) return "☕";
+        if (c.includes("xăng")) return "⛽"; if (c.includes("khách sạn")) return "🏨";
+        return "📍";
+    }
+
+    L.geoJSON(data, {
+        pointToLayer: (f, latlng) => L.marker(latlng, {
+            icon: L.divIcon({ html: `<div style="background:white; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border:2px solid #0d6efd; box-shadow:0 2px 8px rgba(0,0,0,0.2)">${getEmoji(f.properties.category)}</div>`, iconSize: [32, 32], iconAnchor: [16, 32] })
+        }),
+        onEachFeature: (f, layer) => {
+            let p = f.properties;
+            let stars = '★'.repeat(Math.round(p.avg_rating)) + '☆'.repeat(5-Math.round(p.avg_rating));
+            layer.bindPopup(`
+                <div style="width:180px">
+                    ${p.image_url ? `<img src="${p.image_url}" style="width:100%; height:90px; object-fit:cover; border-radius:8px; margin-bottom:5px;">` : ''}
+                    <h6 class="fw-bold mb-1">${p.name}</h6>
+                    <div class="text-warning small mb-1">${stars} (${p.avg_rating})</div>
+                    <div class="text-muted small mb-2"><i class="fa-regular fa-clock"></i> ${p.open_time} - ${p.close_time}</div>
+                    <a href="/location/${p.pk}/" class="btn btn-primary btn-sm w-100 rounded-pill text-white">Xem chi tiết</a>
+                </div>
+            `);
+        }
+    }).addTo(map);
+
+    // Tự động load tất cả địa điểm khi mới vào trang (đợi 0.5s để bản đồ khởi tạo xong)
+    setTimeout(() => {
+        setInfiniteRadius();
+    }, 500);
+
+</script>
 {% endblock %}

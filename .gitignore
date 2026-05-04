@@ -1,0 +1,8 @@
+venv/
+*.pyc
+__pycache__/
+db.sqlite3
+.DS_Store
+.env
+# Nếu file backup SQL quá nặng (>100MB), bạn cũng nên bỏ qua:
+# bando_db_backup.sql
