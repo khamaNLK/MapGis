@@ -15,6 +15,9 @@
         .navbar { box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .btn-primary { background-color: #0d6efd; border: none; }
         .btn-primary:hover { background-color: #0b5ed7; }
+        /* Tùy chỉnh thêm cho nút Dashboard */
+        .btn-dashboard { background-color: #6c757d; color: white; border: none; }
+        .btn-dashboard:hover { background-color: #5a6268; color: white; }
     </style>
 </head>
 <body>
@@ -35,15 +38,26 @@
                         <li class="nav-item me-3">
                             <span class="text-white">Xin chào, <strong>{{ user.username }}</strong>!</span>
                         </li>
+                        
+                        <!-- NÚT DASHBOARD (QUẢN LÝ) ĐƯỢC THÊM TẠI ĐÂY -->
                         <li class="nav-item">
-                            <a class="btn btn-success btn-sm me-2" href="{% url 'add_location' %}">
+                            <a class="btn btn-info btn-sm me-2 fw-bold text-white" href="{% url 'custom_dashboard' %}">
+                                <i class="fa-solid fa-gauge-high"></i> Dashboard
+                            </a>
+                        </li>
+                        <a href="{% url 'password_change' %}" class="btn btn-warning">
+    Đổi mật khẩu
+</a>
+                        <li class="nav-item">
+                            <a class="btn btn-success btn-sm me-2 fw-bold" href="{% url 'add_location' %}">
                                 <i class="fa-solid fa-plus"></i> Thêm địa điểm
                             </a>
                         </li>
+                        
                         <li class="nav-item">
                             <form action="{% url 'logout' %}" method="post" class="d-inline">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <button type="submit" class="btn btn-outline-danger btn-sm fw-bold">
                                     <i class="fa-solid fa-right-from-bracket"></i> Đăng xuất
                                 </button>
                             </form>
@@ -66,3 +80,37 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+<!-- Mobile Bottom Navigation -->
+<nav class="navbar fixed-bottom navbar-light bg-white border-top d-md-none p-0 shadow-lg">
+    <div class="container-fluid">
+        <div class="d-flex w-100 justify-content-around py-2">
+            <a href="{% url 'map_home' %}" class="text-center text-decoration-none flex-grow-1 {% if request.resolver_match.url_name == 'map_home' %}text-primary fw-bold{% else %}text-muted{% endif %}">
+                <i class="fa-solid fa-map-location-dot d-block fs-4"></i>
+                <small style="font-size: 10px;">Bản đồ</small>
+            </a>
+            <a href="{% url 'find_friends' %}" class="text-center text-decoration-none flex-grow-1 {% if request.resolver_match.url_name == 'find_friends' %}text-primary fw-bold{% else %}text-muted{% endif %}">
+                <i class="fa-solid fa-user-group d-block fs-4"></i>
+                <small style="font-size: 10px;">Bạn bè</small>
+            </a>
+            <a href="{% url 'add_location' %}" class="text-center text-decoration-none flex-grow-1 text-primary">
+                <div class="bg-primary text-white rounded-circle shadow d-inline-flex align-items-center justify-content-center" style="width: 45px; height: 45px; margin-top: -25px; border: 4px solid white;">
+                    <i class="fa-solid fa-plus fs-5"></i>
+                </div>
+            </a>
+            <a href="{% url 'custom_dashboard' %}" class="text-center text-decoration-none flex-grow-1 {% if request.resolver_match.url_name == 'custom_dashboard' %}text-primary fw-bold{% else %}text-muted{% endif %}">
+                <i class="fa-solid fa-list-check d-block fs-4"></i>
+                <small style="font-size: 10px;">Quản lý</small>
+            </a>
+            <a href="{% url 'password_change' %}" class="text-center text-decoration-none flex-grow-1 text-muted">
+                <i class="fa-solid fa-gear d-block fs-4"></i>
+                <small style="font-size: 10px;">Cài đặt</small>
+            </a>
+        </div>
+    </div>
+</nav>
+
+<style>
+    /* Tránh nội dung bị thanh menu che mất */
+    body { padding-bottom: 70px; }
+    @media (min-width: 768px) { body { padding-bottom: 0; } }
+</style>

@@ -1,110 +1,176 @@
-{% extends 'locations/base.html' %}
+{% extends 'locations/base.html' %} 
 
-{% block extra_css %}
-<style>
-    body { background-color: #f0f2f5; }
-    .dashboard-wrapper { max-width: 1300px; margin: 30px auto; padding: 0 15px; }
-    .dash-sidebar { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); height: fit-content; }
-    .nav-link-custom { display: flex; align-items: center; gap: 12px; padding: 12px 15px; color: #4b5563; text-decoration: none; border-radius: 10px; font-weight: 600; transition: 0.2s; margin-bottom: 5px; }
-    .nav-link-custom:hover { background: #f3f4f6; color: #0d6efd; }
-    .nav-link-custom.active { background: #e7f1ff; color: #0d6efd; }
-    .content-card { background: white; border-radius: 15px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .table img { width: 45px; height: 45px; border-radius: 8px; object-fit: cover; }
-    .badge-status { padding: 5px 12px; border-radius: 20px; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; }
-    .status-pending { background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5; }
-    .status-approved { background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; }
-</style>
-{% endblock %}
+{% block extra_css %} 
+<style> 
+    body { background-color: #f0f2f5; } 
+    .dashboard-wrapper { max-width: 1300px; margin: 30px auto; padding: 0 15px; } 
+    .dash-sidebar { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); height: fit-content; } 
+    .nav-link-custom { display: flex; align-items: center; gap: 12px; padding: 12px 15px; color: #4b5563; text-decoration: none; border-radius: 10px; font-weight: 600; transition: 0.2s; margin-bottom: 5px; } 
+    .nav-link-custom:hover, .nav-link-custom.active { background: #f3f4f6; color: #0d6efd; } 
+    .content-card { background: white; border-radius: 15px; padding: 25px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); } 
+    .badge-status { padding: 5px 12px; border-radius: 20px; font-weight: 700; font-size: 0.7rem; text-transform: uppercase; } 
+    .status-pending { background: #fff7ed; color: #ea580c; border: 1px solid #ffedd5; } 
+    .status-approved { background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; } 
+</style> 
+{% endblock %} 
 
-{% block content %}
-<div class="dashboard-wrapper">
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}success{% endif %} alert-dismissible fade show fw-bold shadow-sm mb-4">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+{% block content %} 
+<div class="dashboard-wrapper"> 
+    {% if messages %} 
+        {% for message in messages %} 
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}success{% endif %} alert-dismissible fade show fw-bold shadow-sm mb-4"> 
+            {{ message }} 
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button> 
+        </div> 
+        {% endfor %} 
+    {% endif %} 
 
-    <div class="row g-4">
-        <div class="col-lg-3">
-            <div class="dash-sidebar">
-                <div class="text-center mb-4">
-                    <img src="https://ui-avatars.com/api/?name={{ user.username }}&background=0d6efd&color=fff" class="rounded-circle mb-2" width="60">
-                    <h6 class="fw-bold mb-0">Xin chào, {{ user.username }}</h6>
-                    <small class="text-muted">{% if user.is_superuser %}Quản trị viên{% else %}Thành viên{% endif %}</small>
+    <div class="row g-4 pb-5"> 
+        <!-- Sidebar --> 
+        <div class="col-lg-3 d-none d-lg-block"> 
+            <div class="dash-sidebar text-center"> 
+                <img src="https://ui-avatars.com/api/?name={{ user.username }}&background=0d6efd&color=fff" class="rounded-circle mb-2" width="60"> 
+                <h6 class="fw-bold mb-3">{{ user.username }}</h6> 
+                <nav class="text-start"> 
+                    <a href="{% url 'custom_dashboard' %}" class="nav-link-custom active"><i class="fa-solid fa-map-location-dot"></i> Quản lý địa điểm</a> 
+                    <a href="{% url 'find_friends' %}" class="nav-link-custom"><i class="fa-solid fa-user-plus"></i> Tìm bạn bè</a> 
+                    {% if user.is_superuser %} 
+                    <hr> 
+                    <a href="{% url 'manage_users' %}" class="nav-link-custom"><i class="fa-solid fa-users-gear"></i> Quản lý người dùng</a> 
+                    {% endif %} 
+                </nav> 
+            </div> 
+        </div> 
+
+        <!-- Nội dung chính --> 
+        <div class="col-lg-9"> 
+            
+            <!-- 👇 LỜI MỜI KẾT BẠN ĐANG CHỜ 👇 --> 
+            {% if pending_requests %} 
+            <div class="alert alert-primary border-0 shadow-sm rounded-4 mb-4"> 
+                <h6 class="fw-bold"><i class="fa-solid fa-user-clock me-2"></i>Lời mời kết bạn đang chờ:</h6> 
+                {% for req in pending_requests %} 
+                <div class="d-flex align-items-center justify-content-between mt-2 p-2 bg-white rounded-3 shadow-sm"> 
+                    <span class="fw-bold">{{ req.from_user.username }}</span> 
+                    <div> 
+                        <a href="{% url 'accept_friend_request' req.id %}" class="btn btn-sm btn-success rounded-pill px-3">Đồng ý</a> 
+                        <a href="{% url 'remove_friend' req.from_user.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-3">Xóa</a> 
+                    </div> 
+                </div> 
+                {% endfor %} 
+            </div> 
+            {% endif %} 
+
+            <!-- 👇 DANH SÁCH BẠN BÈ 👇 -->
+            <div class="content-card mb-4 p-4 border-0">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold m-0"><i class="fa-solid fa-user-group text-success me-2"></i>Bạn bè của tôi ({{ friends|length }})</h5>
+                    <a href="{% url 'find_friends' %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">Tìm thêm bạn</a>
                 </div>
-                <nav>
-                    <a href="{% url 'custom_dashboard' %}" class="nav-link-custom active"><i class="fa-solid fa-map-location-dot"></i> Quản lý địa điểm</a>
-                    <a href="{% url 'find_friends' %}" class="nav-link-custom"><i class="fa-solid fa-user-plus"></i> Tìm bạn bè</a>
-                    {% if user.is_superuser %}
-                        <hr>
-                        <a href="{% url 'manage_users' %}" class="nav-link-custom"><i class="fa-solid fa-users-gear"></i> Quản lý người dùng</a>
-                    {% endif %}
-                </nav>
-            </div>
-        </div>
-
-        <div class="col-lg-9">
-            {% if pending_requests %}
-            <div class="alert alert-primary border-0 shadow-sm rounded-4 mb-4">
-                <h6 class="fw-bold"><i class="fa-solid fa-user-clock me-2"></i>Lời mời kết bạn đang chờ:</h6>
-                {% for req in pending_requests %}
-                <div class="d-flex align-items-center justify-content-between mt-2 p-2 bg-white rounded-3 shadow-sm">
-                    <span class="fw-bold">{{ req.from_user.username }}</span>
-                    <div>
-                        <a href="{% url 'accept_request' req.id %}" class="btn btn-sm btn-success rounded-pill px-3">Đồng ý</a>
-                        <a href="{% url 'reject_request' req.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-3">Xóa</a>
+                
+                {% if friends %}
+                <div class="d-flex flex-wrap gap-2">
+                    {% for friend in friends %}
+                    <div class="d-flex align-items-center bg-light rounded-pill px-2 py-1 border shadow-sm" style="transition: 0.2s;">
+                        <img src="{% if friend.avatar %}{{ friend.avatar.url }}{% else %}https://ui-avatars.com/api/?name={{ friend.user.username }}&background=198754&color=fff{% endif %}" class="rounded-circle me-2" width="35" height="35" style="object-fit: cover;">
+                        <span class="fw-bold small pe-2">{{ friend.user.username }}</span>
+                        <!-- Nút Xoá bạn bè -->
+                        <a href="{% url 'remove_friend' friend.user.id %}" class="btn btn-sm btn-light rounded-circle text-danger p-0 d-flex align-items-center justify-content-center border" style="width: 25px; height: 25px;" title="Xoá bạn bè" onclick="return confirm('Bạn có chắc muốn huỷ kết bạn với {{ friend.user.username }} không?')">
+                            <i class="fa-solid fa-xmark"></i>
+                        </a>
                     </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+                {% else %}
+                <p class="text-muted small m-0 fst-italic">Bạn chưa có người bạn nào. Hãy tìm kiếm và kết bạn nhé!</p>
+                {% endif %}
             </div>
-            {% endif %}
 
-            <div class="content-card">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h4 class="fw-bold m-0 text-primary">Danh sách địa điểm</h4>
-                    <a href="{% url 'add_location' %}" class="btn btn-primary fw-bold rounded-pill px-4">Thêm mới</a>
-                </div>
+            <!-- 👇 ĐỊA ĐIỂM CỦA TÔI 👇 -->
+            <div class="content-card"> 
+                <div class="d-flex justify-content-between align-items-center mb-4"> 
+                    <h4 class="fw-bold m-0 text-primary">Địa điểm của tôi</h4> 
+                    <a href="{% url 'add_location' %}" class="btn btn-primary fw-bold rounded-pill px-4">+ Thêm mới</a> 
+                </div> 
 
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle border-top">
-                        <thead>
-                            <tr class="text-muted small text-uppercase">
-                                <th>Địa điểm</th>
-                                <th>Trạng thái</th>
-                                <th>Danh mục</th>
-                                <th class="text-end">Thao tác</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for loc in locations %}
-                            <tr>
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <div class="fw-bold">{{ loc.name }}</div>
-                                    </div>
-                                </td>
-                                <td>
-                                    {% if loc.is_approved %}
-                                        <span class="badge-status status-approved">Đã duyệt</span>
-                                    {% else %}
-                                        <span class="badge-status status-pending">Chờ duyệt</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ loc.category.name }}</td>
-                                <td class="text-end">
-                                    <a href="{% url 'edit_location' loc.id %}" class="btn btn-sm btn-light border text-warning"><i class="fa-solid fa-pen"></i></a>
-                                    <a href="{% url 'delete_location' loc.id %}" class="btn btn-sm btn-light border text-danger" onclick="return confirm('Xóa?')"><i class="fa-solid fa-trash"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+                <!-- GIAO DIỆN MOBILE --> 
+                <div class="d-md-none"> 
+                    {% for loc in locations %} 
+                    <div class="card shadow-sm border-0 rounded-4 mb-3 bg-light"> 
+                        <div class="card-body"> 
+                            <div class="d-flex gap-3"> 
+                                {% if loc.image %} 
+                                <img src="{{ loc.image.url }}" class="rounded-3" style="width: 70px; height: 70px; object-fit: cover;"> 
+                                {% endif %} 
+                                <div class="flex-grow-1"> 
+                                    <h6 class="fw-bold mb-1">{{ loc.name }}</h6> 
+                                    <div class="text-warning small mb-1">{{ loc.dashboard_rating|default:0|floatformat:1 }} <i class="fa-solid fa-star"></i></div> 
+                                    <div class="text-muted small mb-2"><i class="fa-regular fa-clock"></i> {{ loc.open_time|time:"H:i"|default:"N/A" }} - {{ loc.close_time|time:"H:i"|default:"N/A" }}</div> 
+                                    {% if loc.is_approved %} 
+                                    <span class="badge bg-success small">Đã duyệt</span> 
+                                    {% else %} 
+                                    <span class="badge bg-warning text-dark small">Chờ duyệt</span> 
+                                    {% endif %} 
+                                </div> 
+                            </div> 
+                            <div class="d-flex justify-content-end gap-2 mt-2 pt-2 border-top"> 
+                                <a href="{% url 'edit_location' loc.id %}" class="btn btn-sm btn-outline-warning rounded-pill"><i class="fa-solid fa-pen"></i></a> 
+                                <a href="{% url 'delete_location' loc.id %}" class="btn btn-sm btn-outline-danger rounded-pill" onclick="return confirm('Xóa?')"><i class="fa-solid fa-trash"></i></a> 
+                            </div> 
+                        </div> 
+                    </div> 
+                    {% empty %} 
+                    <p class="text-center text-muted">Bạn chưa đăng địa điểm nào.</p> 
+                    {% endfor %} 
+                </div> 
+
+                <!-- GIAO DIỆN DESKTOP --> 
+                <div class="d-none d-md-block table-responsive"> 
+                    <table class="table table-hover align-middle"> 
+                        <thead> 
+                            <tr class="text-muted small text-uppercase"> 
+                                <th>Địa điểm</th> 
+                                <th>Giờ hoạt động</th> 
+                                <th>Đánh giá</th> 
+                                <th>Trạng thái</th> 
+                                <th class="text-end">Thao tác</th> 
+                            </tr> 
+                        </thead> 
+                        <tbody> 
+                            {% for loc in locations %} 
+                            <tr> 
+                                <td> 
+                                    <div class="fw-bold">{{ loc.name }}</div> 
+                                    <small class="text-muted">{{ loc.address|truncatechars:40 }}</small> 
+                                </td> 
+                                <td><span class="badge bg-light text-dark border">{{ loc.open_time|time:"H:i"|default:"N/A" }} - {{ loc.close_time|time:"H:i"|default:"N/A" }}</span></td> 
+                                <td><span class="text-warning fw-bold">{{ loc.dashboard_rating|default:0|floatformat:1 }} <i class="fa-solid fa-star"></i></span></td> 
+                                <td> 
+                                    {% if loc.is_approved %} 
+                                    <span class="badge-status status-approved">Đã duyệt</span> 
+                                    {% else %} 
+                                    <span class="badge-status status-pending">Chờ duyệt</span> 
+                                    {% endif %} 
+                                </td> 
+                                <td class="text-end"> 
+                                    <div class="d-flex justify-content-end gap-2"> 
+                                        {% if user.is_superuser and not loc.is_approved %} 
+                                        <a href="{% url 'approve_location' loc.id %}" class="btn btn-sm btn-success fw-bold px-3 rounded-pill">Duyệt</a> 
+                                        {% endif %} 
+                                        <a href="{% url 'edit_location' loc.id %}" class="btn btn-sm btn-light border text-warning"><i class="fa-solid fa-pen"></i></a> 
+                                        <a href="{% url 'delete_location' loc.id %}" class="btn btn-sm btn-light border text-danger" onclick="return confirm('Xóa?')"><i class="fa-solid fa-trash"></i></a> 
+                                    </div> 
+                                </td> 
+                            </tr> 
+                            {% empty %} 
+                            <tr><td colspan="5" class="text-center py-4 text-muted">Danh sách trống.</td></tr> 
+                            {% endfor %} 
+                        </tbody> 
+                    </table> 
+                </div> 
+
+            </div> 
+        </div> 
+    </div> 
+</div> 
 {% endblock %}

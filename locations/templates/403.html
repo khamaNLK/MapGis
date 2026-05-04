@@ -1,0 +1,16 @@
+{% extends 'locations/base.html' %}
+{% block content %}
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+    <div class="text-center p-5 glass-panel" style="max-width: 500px; border-radius: 30px; border-top: 5px solid #dc3545;">
+        <h1 class="display-1 fw-bold text-danger">403</h1>
+        <div class="mb-4">
+            <i class="fa-solid fa-user-shield fa-5x text-danger opacity-25"></i>
+        </div>
+        <h3 class="fw-bold">Khu vực hạn chế!</h3>
+        <p class="text-secondary">Bạn không có quyền chỉnh sửa hoặc truy cập vào khu vực này. Vui lòng liên hệ Admin nếu có nhầm lẫn.</p>
+        <a href="javascript:history.back()" class="btn btn-outline-dark rounded-pill px-5 py-2 fw-bold">
+            <i class="fa-solid fa-arrow-left me-2"></i> Quay lại
+        </a>
+    </div>
+</div>
+{% endblock %}

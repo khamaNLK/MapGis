@@ -1,159 +1,225 @@
-{% extends 'locations/base.html' %}
-{% block extra_css %}
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        .full-height { height: calc(100vh - 56px); }
-        .sidebar-scroll { overflow-y: auto; height: 100%; background: white; }
-        #map { height: 100%; width: 100%; z-index: 1; }
-        .search-tool { background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
-        .form-control[readonly] { background-color: #e9ecef; cursor: not-allowed; font-weight: bold; color: #198754; }
-        .preview-img { width: 100%; height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; }
-    </style>
-{% endblock %}
+{% extends 'locations/base.html' %} 
+{% block extra_css %} 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/> 
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet"> 
+<style> 
+    .full-height { height: calc(100vh - 56px); } 
+    .sidebar-scroll { overflow-y: auto; height: 100%; background: white; border-right: 1px solid #eee; } 
+    #map { height: 100%; width: 100%; z-index: 1; background: #eee; } 
+    .search-box-container { background: #e7f5ff; border: 2px solid #228be6; border-radius: 12px; padding: 15px; margin-bottom: 20px; } 
+    #editor-container { height: 200px; background: white; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; } 
+    .ql-toolbar { border-top-left-radius: 8px; border-top-right-radius: 8px; background: #f8f9fa; } 
+    .coords-bg { background: #f1f3f5; padding: 10px; border-radius: 8px; } 
+    .preview-img { width: 100%; height: 150px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ddd; } 
+</style> 
+{% endblock %} 
 
-{% block content %}
-<div class="container-fluid p-0">
-    <div class="row g-0 full-height">
-        <div class="col-md-4 col-lg-4 sidebar-scroll p-4 shadow-sm" style="z-index: 2;">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="text-primary m-0"><i class="fa-solid {% if is_edit %}fa-pen-to-square{% else %}fa-map-location-dot{% endif %}"></i> {% if is_edit %}Sửa{% else %}Thêm{% endif %} Địa Điểm</h4>
-                <a href="{% url 'custom_dashboard' %}" class="btn btn-sm btn-outline-secondary rounded-pill fw-bold">Trở về</a>
-            </div>
+{% block content %} 
+<div class="container-fluid p-0"> 
+    <div class="row g-0 full-height"> 
+        <div class="col-md-4 p-4 sidebar-scroll"> 
+            <div class="d-flex justify-content-between align-items-center mb-4"> 
+                <h4 class="text-primary fw-bold m-0"><i class="fa-solid fa-map-location-dot"></i> {% if is_edit %}Sửa{% else %}Thêm{% endif %} Địa Điểm</h4> 
+                <a href="{% url 'custom_dashboard' %}" class="btn btn-sm btn-outline-secondary rounded-pill">Trở về</a> 
+            </div> 
+            <div class="search-box-container shadow-sm"> 
+                <label class="fw-bold small mb-2 text-primary">Tìm vị trí nhanh:</label> 
+                <div class="input-group"> 
+                    <input type="text" id="address-search" class="form-control" placeholder="Gõ tên đường, phường, tp..."> 
+                    <button class="btn btn-primary fw-bold" type="button" onclick="searchByAddress()">Tìm</button> 
+                </div> 
+            </div> 
+            
+            <form method="POST" id="add-location-form" enctype="multipart/form-data"> 
+                {% csrf_token %} 
+                <!-- Tọa độ --> 
+                <div class="row g-2 mb-3 coords-bg shadow-sm"> 
+                    <div class="col-6"> 
+                        <label class="extra-small fw-bold text-muted">VĨ ĐỘ (LAT)</label> 
+                        <input type="text" id="lat" name="lat" class="form-control form-control-sm border-0 bg-transparent fw-bold" readonly required value="{{ form.lat.value|default:'' }}"> 
+                    </div> 
+                    <div class="col-6"> 
+                        <label class="extra-small fw-bold text-muted">KINH ĐỘ (LON)</label> 
+                        <input type="text" id="lng" name="lon" class="form-control form-control-sm border-0 bg-transparent fw-bold" readonly required value="{{ form.lon.value|default:'' }}"> 
+                    </div> 
+                </div> 
 
-            <div class="search-tool shadow-sm">
-                <label class="form-label fw-bold small text-muted">Tìm khu vực nhanh:</label>
-                <div class="input-group">
-                    <input type="text" id="search-input" class="form-control" placeholder="VD: Chợ Bến Thành...">
-                    <button class="btn btn-primary" type="button" onclick="searchLocation()"><i class="fa-solid fa-arrow-right"></i></button>
-                </div>
-            </div>
+                <div class="mb-3"> 
+                    <label class="fw-bold text-dark"><i class="fa-solid fa-signature"></i> Tên địa điểm *</label> 
+                    <input type="text" name="name" class="form-control" required value="{% if is_edit %}{{ location.name }}{% endif %}" placeholder="Nhập tên quán..."> 
+                </div> 
 
-            <form method="POST" enctype="multipart/form-data">
-                {% csrf_token %}
+                <div class="mb-3"> 
+                    <label class="fw-bold small">Địa chỉ hiển thị</label> 
+                    <textarea name="address" class="form-control" rows="2" placeholder="Địa chỉ tự động lấy từ bản đồ...">{% if is_edit %}{{ location.address }}{% endif %}</textarea> 
+                </div> 
+
+                <!-- THÊM: GIỜ HOẠT ĐỘNG -->
                 <div class="row g-2 mb-3">
-                    <div class="col-5">
-                        <label class="small fw-bold">Vĩ độ (Lat)</label>
-                        <input type="text" id="lat" name="lat" class="form-control form-control-sm" readonly required value="{{ form.lat.value|default:'' }}">
+                    <div class="col-6">
+                        <label class="fw-bold small text-dark"><i class="fa-regular fa-clock"></i> Giờ mở cửa</label>
+                        <input type="time" name="open_time" id="open_time" class="form-control" value="{{ location.open_time|time:'H:i' }}">
                     </div>
-                    <div class="col-5">
-                        <label class="small fw-bold">Kinh độ (Lng)</label>
-                        <input type="text" id="lng" name="lon" class="form-control form-control-sm" readonly required value="{{ form.lon.value|default:'' }}">
-                    </div>
-                    <div class="col-2 d-flex align-items-end">
-                        <button type="button" class="btn btn-sm btn-outline-primary w-100" onclick="locateMe()" title="Định vị">
-                            <i class="fa-solid fa-location-crosshairs"></i>
-                        </button>
+                    <div class="col-6">
+                        <label class="fw-bold small text-dark"><i class="fa-solid fa-door-closed"></i> Giờ đóng cửa</label>
+                        <input type="time" name="close_time" id="close_time" class="form-control" value="{{ location.close_time|time:'H:i' }}">
                     </div>
                 </div>
 
-                <div class="mb-3">
-                    <label class="fw-bold">Địa chỉ thực tế</label>
-                    <textarea name="address" id="real-address" class="form-control" rows="2" readonly required placeholder="Click map để lấy địa chỉ...">{% if is_edit %}{{ location.address }}{% endif %}</textarea>
-                </div>
+                <div class="mb-3"> 
+                    <label class="fw-bold">Danh mục</label> 
+                    <select name="category_name" class="form-select border-primary" required> 
+                        <option value="Quán ăn" {% if is_edit and location.category.name == "Quán ăn" %}selected{% endif %}>🍜 Quán ăn</option> 
+                        <option value="Cafe" {% if is_edit and location.category.name == "Cafe" %}selected{% endif %}>☕ Cafe</option> 
+                        <option value="Trạm xăng" {% if is_edit and location.category.name == "Trạm xăng" %}selected{% endif %}>⛽ Trạm xăng</option> 
+                        <option value="Khách sạn" {% if is_edit and location.category.name == "Khách sạn" %}selected{% endif %}>🏨 Khách sạn</option> 
+                        <option value="Siêu thị" {% if is_edit and location.category.name == "Siêu thị" %}selected{% endif %}>🛒 Siêu thị</option> 
+                        <option value="Khác" {% if is_edit and location.category.name == "Khác" %}selected{% endif %}>📍 Khác</option> 
+                    </select> 
+                </div> 
 
-                <div class="mb-3">
-                    <label class="fw-bold">Tên địa điểm *</label>
-                    <input type="text" name="name" class="form-control" required value="{% if is_edit %}{{ location.name }}{% endif %}" placeholder="Nhập tên quán...">
-                </div>
+                <div class="mb-3"> 
+                    <div class="d-flex justify-content-between align-items-center mb-1"> 
+                        <label class="fw-bold">Mô tả chi tiết</label> 
+                        <button type="button" class="btn btn-sm btn-outline-secondary border-0" onclick="startDictation()"> 
+                            <i class="fa-solid fa-microphone text-danger"></i> Nói để nhập 
+                        </button> 
+                    </div> 
+                    <input type="hidden" name="description" id="description-hidden"> 
+                    <div id="editor-container"></div> 
+                </div> 
 
-                <div class="mb-3">
-                    <label class="fw-bold">Danh mục địa điểm *</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="fa-solid fa-layer-group"></i></span>
-                        <select name="category_name" class="form-select" required>
-                            <option value="" selected disabled>-- Chọn danh mục --</option>
-                            <option value="Quán ăn" {% if is_edit and location.category.name == "Quán ăn" %}selected{% endif %}>🍜 Quán ăn</option>
-                            <option value="Cafe" {% if is_edit and location.category.name == "Cafe" %}selected{% endif %}>☕ Cafe</option>
-                            <option value="Trạm xăng" {% if is_edit and location.category.name == "Trạm xăng" %}selected{% endif %}>⛽ Trạm xăng</option>
-                            <option value="Khách sạn" {% if is_edit and location.category.name == "Khách sạn" %}selected{% endif %}>🏨 Khách sạn</option>
-                            <option value="Giải trí" {% if is_edit and location.category.name == "Giải trí" %}selected{% endif %}>🎮 Giải trí</option>
-                            <option value="Siêu thị" {% if is_edit and location.category.name == "Siêu thị" %}selected{% endif %}>🛒 Siêu thị</option>
-                            <option value="Công viên" {% if is_edit and location.category.name == "Công viên" %}selected{% endif %}>🌳 Công viên</option>
-                            <option value="Bệnh viện" {% if is_edit and location.category.name == "Bệnh viện" %}selected{% endif %}>🏥 Bệnh viện</option>
-                            <option value="Trường học" {% if is_edit and location.category.name == "Trường học" %}selected{% endif %}>🏫 Trường học</option>
-                        </select>
-                    </div>
-                </div>
+                <div class="mb-3"> 
+                    <label class="fw-bold small">Ảnh đại diện chính</label> 
+                    {% if is_edit and location.image %} 
+                        <img src="{{ location.image.url }}" class="preview-img"> 
+                    {% endif %} 
+                    <input type="file" name="image" class="form-control border-success"> 
+                </div> 
 
-                <div class="mb-3">
-                    <label class="fw-bold">Mô tả</label>
-                    <textarea name="description" class="form-control" rows="3">{% if is_edit %}{{ location.description }}{% endif %}</textarea>
-                </div>
+                <div class="mb-4"> 
+                    <label class="fw-bold small text-success">Bộ sưu tập ảnh phụ (Chọn nhiều)</label> 
+                    <input type="file" name="extra_images" class="form-control" multiple accept="image/*"> 
+                    <small class="text-muted">Giữ phím Ctrl hoặc Shift để chọn nhiều ảnh.</small> 
+                </div> 
 
-                <div class="mb-4">
-                    <label class="fw-bold">Hình ảnh</label>
-                    {% if is_edit and location.image %}
-                        <img src="{{ location.image.url }}" class="preview-img">
-                    {% endif %}
-                    {{ form.image }}
-                </div>
+                <button type="submit" class="btn btn-success w-100 py-3 fw-bold shadow-lg rounded-pill"> 
+                    <i class="fa-solid fa-cloud-arrow-up"></i> {% if is_edit %}CẬP NHẬT THAY ĐỔI{% else %}LƯU ĐỊA ĐIỂM NGAY{% endif %} 
+                </button> 
+            </form> 
+        </div> 
 
-                <button type="submit" class="btn btn-success w-100 py-2 fw-bold rounded-pill shadow">
-                    <i class="fa-solid fa-floppy-disk"></i> {% if is_edit %}Cập Nhật{% else %}Lưu Địa Điểm{% endif %}
-                </button>
-            </form>
-        </div>
+        <div class="col-md-8 position-relative"> 
+            <div id="map"></div> 
+            <div style="position: absolute; bottom: 20px; right: 20px; z-index: 1000;" class="badge bg-dark p-2 opacity-75"> 
+                Click bản đồ để lấy vị trí 
+            </div> 
+        </div> 
+    </div> 
+</div> 
 
-        <div class="col-md-8 col-lg-8 position-relative">
-            <div id="map"></div>
-            <div id="loading-overlay" style="display:none; position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.7); z-index:9999; align-items:center; justify-content:center;">
-                <div class="spinner-border text-primary"></div>
-            </div>
-        </div>
-    </div>
-</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script> 
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script> 
+<script> 
+    // 1. Khởi tạo Map 
+    var map = L.map('map').setView([10.762622, 106.660172], 14); 
+    L.tileLayer('http://mt1.google.com/vt/lyrs=m&hl=vi&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map); 
+    var marker = null; 
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-    var map = L.map('map').setView([10.762622, 106.660172], 14);
-    L.tileLayer('http://mt0.google.com/vt/lyrs=y&hl=vi&x={x}&y={y}&z={z}', { maxZoom: 20 }).addTo(map);
-    
-    var marker = null;
+    // 2. Khởi tạo Quill Editor 
+    var quill = new Quill('#editor-container', { 
+        modules: { toolbar: [[{'header': [1, 2, false]}], ['bold', 'italic'], [{'list': 'ordered'}, {'list': 'bullet'}], ['link']] }, 
+        theme: 'snow', 
+        placeholder: 'Mô tả thêm về địa điểm...' 
+    }); 
+    {% if is_edit and location.description %} 
+        quill.root.innerHTML = `{{ location.description|safe }}`; 
+    {% endif %} 
 
-    function locateMe() {
-        if (!navigator.geolocation) return alert("Không hỗ trợ định vị!");
-        document.getElementById('loading-overlay').style.display = 'flex';
-        navigator.geolocation.getCurrentPosition(function(pos) {
-            document.getElementById('loading-overlay').style.display = 'none';
-            var lat = pos.coords.latitude, lng = pos.coords.longitude;
-            map.flyTo([lat, lng], 17);
-            updateLocationFields(lat, lng);
-        }, function() {
-            document.getElementById('loading-overlay').style.display = 'none';
-            alert("Lỗi GPS!");
-        });
-    }
+    // 3. Hàm cập nhật dữ liệu 
+    function updateLocationFields(lat, lng, forcedAddress, forcedName) { 
+        if (marker) map.removeLayer(marker); 
+        marker = L.marker([lat, lng], { draggable: true }).addTo(map); 
+        document.getElementById('lat').value = lat.toFixed(6); 
+        document.getElementById('lng').value = lng.toFixed(6); 
+        if (forcedAddress) document.querySelector('[name="address"]').value = forcedAddress; 
+        if (forcedName) { 
+            let nameInput = document.querySelector('[name="name"]'); 
+            if(!nameInput.value) nameInput.value = forcedName; 
+        } 
+        marker.on('dragend', function (e) { 
+            let newPos = e.target.getLatLng(); 
+            reverseGeocode(newPos.lat, newPos.lng); 
+        }); 
+    } 
 
-    function updateLocationFields(lat, lng) {
-        if (marker) map.removeLayer(marker);
-        marker = L.marker([lat, lng]).addTo(map);
-        document.getElementById('lat').value = lat.toFixed(6);
-        document.getElementById('lng').value = lng.toFixed(6);
-        
-        document.getElementById('real-address').value = "⏳ Đang lấy địa chỉ...";
-        fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`)
-            .then(res => res.json()).then(data => {
-                document.getElementById('real-address').value = data.display_name || "Không xác định";
-            });
-    }
+    // 4. Tìm kiếm bằng tọa độ 
+    function reverseGeocode(lat, lng) { 
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`) 
+        .then(r => r.json()) 
+        .then(data => { 
+            let suggestedName = data.name || (data.address && data.address.road) || "Địa điểm mới"; 
+            updateLocationFields(lat, lng, data.display_name, suggestedName); 
+        }); 
+    } 
 
-    {% if is_edit and location %}
-        var ilat = {{ location.geom.y|stringformat:"f" }}, ilng = {{ location.geom.x|stringformat:"f" }};
-        map.setView([ilat, ilng], 17);
-        updateLocationFields(ilat, ilng);
-    {% endif %}
+    // 5. Tìm kiếm bằng địa chỉ 
+    function searchByAddress() { 
+        var addr = document.getElementById('address-search').value; 
+        if(!addr) return; 
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addr)}&limit=1`) 
+        .then(r => r.json()).then(data => { 
+            if (data.length > 0) { 
+                var res = data[0]; 
+                map.flyTo([res.lat, res.lon], 17); 
+                updateLocationFields(parseFloat(res.lat), parseFloat(res.lon), res.display_name, res.display_name.split(',')[0]); 
+            } else { 
+                alert("Không tìm thấy địa điểm này!"); 
+            } 
+        }); 
+    } 
 
-    window.searchLocation = function() {
-        var q = document.getElementById('search-input').value;
-        if (!q) return;
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`)
-            .then(res => res.json()).then(data => {
-                if (data.length > 0) map.flyTo([data[0].lat, data[0].lon], 16);
-            });
-    };
+    {% if is_edit and location.geom %} 
+        var oldLat = {{ location.geom.y }}; 
+        var oldLng = {{ location.geom.x }}; 
+        map.setView([oldLat, oldLng], 17); 
+        updateLocationFields(oldLat, oldLng, `{{ location.address|escapejs }}`, `{{ location.name|escapejs }}`); 
+    {% endif %} 
 
-    map.on('click', function(e) {
-        updateLocationFields(e.latlng.lat, e.latlng.lng);
-    });
-</script>
+    map.on('click', e => { 
+        reverseGeocode(e.latlng.lat, e.latlng.lng); 
+    }); 
+
+    // BẮT SỰ KIỆN KHI ẤN NÚT LƯU ĐỂ VALIDATE THỜI GIAN
+    document.getElementById('add-location-form').onsubmit = function(event) { 
+        // Kiểm tra logic giờ mở cửa / đóng cửa
+        let openTime = document.getElementById('open_time').value;
+        let closeTime = document.getElementById('close_time').value;
+
+        if (openTime && closeTime) {
+            if (closeTime <= openTime) {
+                alert("Lỗi: Giờ đóng cửa phải sau giờ mở cửa!");
+                event.preventDefault(); // Chặn việc gửi form
+                return false;
+            }
+        }
+
+        // Nếu mọi thứ ổn, lưu nội dung từ Quill
+        document.getElementById('description-hidden').value = quill.root.innerHTML; 
+    }; 
+
+    function startDictation() { 
+        if (window.hasOwnProperty('webkitSpeechRecognition')) { 
+            var recognition = new webkitSpeechRecognition(); 
+            recognition.lang = "vi-VN"; 
+            recognition.start(); 
+            recognition.onresult = function(e) { 
+                quill.insertText(quill.getLength(), e.results[0][0].transcript); 
+                recognition.stop(); 
+            }; 
+        } else { 
+            alert("Trình duyệt không hỗ trợ nhận diện giọng nói."); 
+        } 
+    } 
+</script> 
 {% endblock %}

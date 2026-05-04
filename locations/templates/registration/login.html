@@ -1,37 +1,43 @@
 {% extends 'locations/base.html' %}
-
 {% block content %}
 <div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-5">
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0"><i class="fa-solid fa-right-to-bracket"></i> Đăng Nhập</h4>
+        <div class="col-md-4">
+            <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
+                <div class="bg-dark p-4 text-center">
+                    <h4 class="fw-bold text-white m-0">MyMap Login</h4>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-4">
+                    {% if form.errors %}
+                        <div class="alert alert-danger border-0 rounded-3 small shadow-sm">
+                            <i class="fa-solid fa-circle-exclamation me-2"></i>
+                            Tên đăng nhập/Mật khẩu không đúng hoặc <b>tài khoản chưa xác thực OTP</b>.
+                        </div>
+                    {% endif %}
+
                     <form method="post">
                         {% csrf_token %}
-                        
                         <div class="mb-3">
-                            <label class="form-label fw-bold">Tên đăng nhập</label>
-                            <input type="text" name="username" class="form-control" required>
+                            <label class="form-label small fw-bold">Tên đăng nhập</label>
+                            <input type="text" name="username" class="form-control" style="border-radius: 10px;">
                         </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Mật khẩu</label>
-                            <input type="password" name="password" class="form-control" required>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold">Mật khẩu</label>
+                            <input type="password" name="password" class="form-control" style="border-radius: 10px;">
                         </div>
-
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary fw-bold">Đăng Nhập</button>
-                        </div>
+                        <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold shadow">
+                            ĐĂNG NHẬP
+                        </button>
                     </form>
-                </div>
-                <div class="card-footer text-center">
-                    Chưa có tài khoản? <a href="{% url 'signup' %}">Đăng ký mới</a>
+                    <div class="text-center mt-3">
+                        <a href="{% url 'signup' %}" class="small text-decoration-none">Chưa có tài khoản? <b>Đăng ký ngay</b></a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+</div>
+<div class="text-center mt-2">
+<a href="{% url 'password_reset' %}">Quên mật khẩu?</a>
 </div>
 {% endblock %}

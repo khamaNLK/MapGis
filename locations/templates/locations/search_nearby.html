@@ -1,0 +1,21 @@
+let searchMarker;
+
+map.on('click', function(e) {
+    const lngLat = e.lngLat;
+    const radius = document.getElementById('radius-slider').value;
+
+    // Hiển thị marker tại điểm vừa click
+    if (searchMarker) searchMarker.remove();
+    searchMarker = new mapboxgl.Marker({ color: 'red' }).setLngLat(lngLat).addTo(map);
+
+    // Gửi request API về Server
+    fetch(`/search-nearby/?lat=${lngLat.lat}&lng=${lngLat.lng}&radius=${radius}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Xóa các marker cũ và hiển thị các địa điểm tìm thấy trong bán kính
+        renderLocationsOnMap(data); 
+        console.log(`Tìm thấy ${data.features.length} địa điểm trong bán kính ${radius}m`);
+    });
+});

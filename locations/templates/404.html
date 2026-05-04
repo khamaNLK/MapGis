@@ -1,0 +1,16 @@
+{% extends 'locations/base.html' %}
+{% block content %}
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+    <div class="text-center p-5 glass-panel" style="max-width: 500px; border-radius: 30px;">
+        <h1 class="display-1 fw-bold text-primary">404</h1>
+        <div class="mb-4">
+            <i class="fa-solid fa-map-location-dot fa-5x text-muted opacity-25"></i>
+        </div>
+        <h3 class="fw-bold">Ối! Bạn bị lạc đường rồi</h3>
+        <p class="text-secondary">Địa điểm hoặc trang bạn đang tìm kiếm không tồn tại trên bản đồ của chúng tôi.</p>
+        <a href="{% url 'map_home' %}" class="btn btn-primary rounded-pill px-5 py-2 fw-bold shadow">
+            <i class="fa-solid fa-house-chimney me-2"></i> Quay lại Trang chủ
+        </a>
+    </div>
+</div>
+{% endblock %}

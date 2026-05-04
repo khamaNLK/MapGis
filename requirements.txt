@@ -1,4 +1,21 @@
-asgiref==3.11.1
+# Django Framework
 Django==6.0.2
-psycopg2-binary==2.9.11
-sqlparse==0.5.5
+
+# Database Driver cho PostgreSQL
+psycopg2-binary
+
+# Xử lý hình ảnh (Bắt buộc cho ImageField trong models)
+Pillow
+
+# Quản lý cấu hình và biến môi trường
+python-dotenv
+
+# Tiện ích mở rộng cho GIS (Tùy chọn nếu bạn muốn tích hợp sâu hơn)
+django-leaflet
+
+# Bảo mật và CORS (Nếu sau này bạn tách Frontend/Mobile)
+django-cors-headers
+
+# Các thư viện bổ trợ cho việc triển khai (Deployment)
+gunicorn
+whitenoise

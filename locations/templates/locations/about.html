@@ -1,0 +1,122 @@
+{% extends 'locations/base.html' %}
+
+{% block extra_css %}
+<style>
+    .about-header {
+        background: linear-gradient(135deg, #0d6efd 0%, #003d99 100%);
+        color: white;
+        padding: 80px 0;
+        border-radius: 0 0 50px 50px;
+        margin-bottom: 50px;
+    }
+    .tech-card {
+        border: none;
+        border-radius: 20px;
+        transition: transform 0.3s;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    }
+    .tech-card:hover {
+        transform: translateY(-10px);
+    }
+    .feature-icon {
+        width: 60px;
+        height: 60px;
+        background: #e7f5ff;
+        color: #0d6efd;
+        border-radius: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 20px;
+    }
+    .developer-section {
+        background: white;
+        padding: 50px;
+        border-radius: 30px;
+        box-shadow: 0 15px 50px rgba(0,0,0,0.05);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Header Giới thiệu -->
+<div class="about-header text-center">
+    <div class="container">
+        <h1 class="display-4 fw-bold mb-3">Về Dự Án MyMap GIS</h1>
+        <p class="lead opacity-90">Hệ thống quản lý địa điểm thông minh dựa trên nền tảng bản đồ số chuyên sâu.</p>
+    </div>
+</div>
+
+<div class="container mb-5">
+    <div class="row g-5">
+        <!-- Cột nội dung chính -->
+        <div class="col-lg-7">
+            <h2 class="fw-bold text-primary mb-4">Mục tiêu dự án</h2>
+            <p class="text-secondary lh-lg">
+                <strong>MyMap GIS</strong> được xây dựng với mục tiêu cung cấp một giải pháp trực quan hóa dữ liệu không gian, cho phép người dùng không chỉ tìm kiếm mà còn tham gia xây dựng hệ sinh thái địa điểm tại địa phương. 
+                Đặc biệt, dự án tập trung vào khả năng quản lý dữ liệu thực tế tại khu vực <strong>Gia Lai</strong>, hỗ trợ công tác nghiên cứu và theo dõi biến đổi sử dụng đất thông qua các thuật toán hiện đại.
+            </p>
+            
+            <div class="row mt-5">
+                <div class="col-md-6 mb-4">
+                    <div class="feature-icon"><i class="fa-solid fa-layer-group"></i></div>
+                    <h5 class="fw-bold">Dữ liệu GIS chuẩn</h5>
+                    <p class="small text-muted">Lưu trữ tọa độ chính xác với hệ quy chiếu SRID 4326 qua PostGIS.</p>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="feature-icon"><i class="fa-solid fa-users-viewfinder"></i></div>
+                    <h5 class="fw-bold">Kết nối thực tế</h5>
+                    <p class="small text-muted">Theo dõi vị trí bạn bè trong thời gian thực trên nền bản đồ số.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cột Tech Stack -->
+        <div class="col-lg-5">
+            <div class="card tech-card p-4 bg-light border-0">
+                <h5 class="fw-bold mb-4 border-bottom pb-2">Công nghệ sử dụng</h5>
+                <ul class="list-unstyled">
+                    <li class="mb-3 d-flex align-items-center">
+                        <i class="fa-brands fa-python text-primary me-3 fs-4"></i>
+                        <div><strong>Backend:</strong> Django (Python)</div>
+                    </li>
+                    <li class="mb-3 d-flex align-items-center">
+                        <i class="fa-solid fa-database text-info me-3 fs-4"></i>
+                        <div><strong>Database:</strong> PostgreSQL & PostGIS</div>
+                    </li>
+                    <li class="mb-3 d-flex align-items-center">
+                        <i class="fa-solid fa-map-location-dot text-success me-3 fs-4"></i>
+                        <div><strong>Map Engine:</strong> LeafletJS & OSM API</div>
+                    </li>
+                    <li class="mb-3 d-flex align-items-center">
+                        <i class="fa-brands fa-bootstrap text-purple me-3 fs-4" style="color: #7952b3;"></i>
+                        <div><strong>Frontend:</strong> Bootstrap 5 & FontAwesome</div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thông tin tác giả -->
+    <div class="developer-section mt-5">
+        <div class="row align-items-center">
+            <div class="col-md-3 text-center">
+                <img src="https://ui-avatars.com/api/?name={{ user.username|default:'Khanh' }}&size=200&background=0d6efd&color=fff" class="rounded-circle shadow-lg mb-3" width="150">
+            </div>
+            <div class="col-md-9">
+                <h4 class="fw-bold">Phát triển bởi: Nguyễn Lữ Khâm, Phạm Huy Hoàng, Mai Việt Hoàng</h4>
+                <p class="badge bg-primary px-3 py-2 rounded-pill">Mobile Police & IT Developer</p>
+                <p class="text-secondary mt-2">
+                    Là một sinh viên công nghệ thông tin, tôi luôn khao khát ứng dụng công nghệ thông tin vào việc giải quyết các bài toán thực tiễn. 
+                    Dự án này là thành quả của quá trình nghiên cứu về GIS, Remote Sensing và lập trình Web chuyên sâu.
+                </p>
+                <div class="mt-3">
+                    <a href="mailto:{{ settings.DEFAULT_FROM_EMAIL }}" class="btn btn-sm btn-outline-dark me-2"><i class="fa-solid fa-envelope me-1"></i> Liên hệ</a>
+                    <a href="{% url 'map_home' %}" class="btn btn-sm btn-primary"><i class="fa-solid fa-house me-1"></i> Quay về trang chủ</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
